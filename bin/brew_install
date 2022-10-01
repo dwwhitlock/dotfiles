@@ -1,0 +1,14 @@
+#!/usr/bin/env sh
+
+brew install \
+    awscli \
+    pyenv \
+    direnv \
+    jq \
+    fzf \
+    k9s \
+    kubectx \
+    npm \
+    terraform \
+    terragrunt \
+    pre-commit
