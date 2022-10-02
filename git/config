@@ -1,0 +1,19 @@
+[init]
+  defaultBranch = main
+
+[pull]
+  rebase = true
+
+[rebase]
+  autostash = true
+
+[push]
+  default = upstream
+  autoSetupRemote = true
+
+[user]
+  email = dwightwhitlock23@gmail.com
+  name = Dwight Whitlock
+
+[includeIf "gitdir:~/dev/work/"]
+  path = ~/dev/work/.gitconfig
