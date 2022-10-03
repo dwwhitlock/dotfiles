@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+
+PROJECT_ROOT=$(git rev-parse --show-toplevel)
+ln $PROJECT_ROOT/git/config ~/.gitconfig
+ln $PROJECT_ROOT/git/ignore ~/.gitignore 
