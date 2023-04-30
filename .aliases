@@ -1,0 +1,4 @@
+
+# only use for unicode text
+alias copy="xsel --clipboard <"
+alias paste="xsel --clipboard >"
