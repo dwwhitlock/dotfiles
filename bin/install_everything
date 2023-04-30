@@ -1,0 +1,8 @@
+#!/usr/bin/env sh
+
+./apt_install
+./brew_install
+
+
+chsh -s $(which zsh)
+echo "Logout and log back in for zsh to take effect."
