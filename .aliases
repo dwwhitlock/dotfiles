@@ -2,3 +2,11 @@
 # only use for unicode text
 alias copy="xsel --clipboard <"
 alias paste="xsel --clipboard >"
+
+
+# terraform
+alias tf="terraform"
+alias tfa="tf apply"
+alias tfaa="tfa -auto-approve"
+alias tfp="tf plan"
+alias tfd="tf destroy"
