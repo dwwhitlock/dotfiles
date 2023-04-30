@@ -1,5 +1,12 @@
 #!/usr/bin/env sh
 
 PROJECT_ROOT=$(git rev-parse --show-toplevel)
+
+# git
 ln $PROJECT_ROOT/git/config ~/.gitconfig
 ln $PROJECT_ROOT/git/ignore ~/.gitignore 
+
+# shell
+ln $PROJECT_ROOT/.zshrc ~/.zshrc
+ln $PROJECT_ROOT/.aliases ~/.aliases
+ln $PROJECT_ROOT/powerlevel10k.zsh-theme $(brew --prefix)/opt/powerlevel10k/powerlevel10k.zsh-theme
