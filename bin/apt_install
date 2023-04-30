@@ -1,3 +1,5 @@
+#!/usr/bin/env sh
+
 #  pyenv dependencies
 sudo apt update; sudo apt install build-essential git gcc make openssl libssl-dev zlib1g-dev \
 libbz2-dev libreadline-dev libsqlite3-dev curl llvm \
