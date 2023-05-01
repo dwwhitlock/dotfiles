@@ -7,11 +7,21 @@ fi
 
 export PATH=$HOME/bin:/usr/local/bin:$PATH
 export PATH=/opt/homebrew/bin:$PATH
+
 # Set PATH, MANPATH, etc., for Homebrew.
 eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 
 # Uncomment the following line to enable command auto-correction.
 ENABLE_CORRECTION="true"
+
+# Keep 1000 lines of history within the shell and save it to ~/.zsh_history:
+HISTSIZE=1000
+SAVEHIST=1000
+HISTFILE=~/.zsh_history
+
+# Use modern completion system
+autoload -Uz compinit
+compinit
 
 
 # Which plugins would you like to load?
@@ -41,10 +51,10 @@ export EDITOR=nvim
 # To customize prompt, run `p10k configure` or edit ~/  .p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
+export JAVA_HOME="/home/linuxbrew/.linuxbrew"
 export PYENV_ROOT="$HOME/.pyenv"
 export PATH="$PYENV_ROOT/bin:$PATH"
 eval "$(pyenv init --path)"
-
 eval "$(direnv hook zsh)"
 
 

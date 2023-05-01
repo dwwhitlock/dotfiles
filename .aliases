@@ -5,8 +5,22 @@ alias paste="xsel --clipboard >"
 
 
 # terraform
-alias tf="terraform"
-alias tfa="tf apply"
-alias tfaa="tfa -auto-approve"
-alias tfp="tf plan"
-alias tfd="tf destroy"
+alias tf='terraform'
+alias tg='terragrunt'
+alias tgf='terragrunt hclfmt'
+alias tfa='terraform apply'
+alias tfd='terraform destroy'
+alias tfaa='tfa -auto-approve'
+alias tfda='tfd -auto-approve'
+alias rebirth="tfd -auto-approve && tfa --auto-approve"
+
+alias aws_env='env | sort | grep AWS'
+alias da="direnv allow"
+alias pcr="pre-commit run"
+alias pcra="pre-commit run --all-files"
+alias asl="aws sso login"
+
+
+
+# wsl issues with vpn
+alias network_init="wsl.exe -d wsl-vpnkit --cd /app service wsl-vpnkit start &>/dev/null"

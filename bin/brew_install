@@ -16,7 +16,8 @@ brew install \
     terraform \
     terragrunt \
     pre-commit \
-    tree
+    tree \
+    java
 
     
 

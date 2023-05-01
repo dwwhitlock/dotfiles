@@ -15,6 +15,13 @@
   email = 59847742+dwwhitlock@users.noreply.github.com
   name = Dwight Whitlock
 
+[alias]
+  co = checkout
+  br = branch 
+  ci = commit
+  st = status
+  
+
 [include]
   path = ~/.signing_git_config
 
