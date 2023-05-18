@@ -20,7 +20,7 @@
   br = branch 
   ci = commit
   st = status
-  
+  p = push  
 
 [include]
   path = ~/.signing_git_config
