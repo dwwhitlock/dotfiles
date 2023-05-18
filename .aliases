@@ -16,10 +16,14 @@ alias rebirth="tfd -auto-approve && tfa --auto-approve"
 
 alias aws_env='env | sort | grep AWS'
 alias da="direnv allow"
+alias de="direnv edit"
 alias pcr="pre-commit run"
 alias pcra="pre-commit run --all-files"
-alias asl="aws sso login --sso-session sso"
 
+alias asl_session="aws sso login --sso-session my-sso"
+alias asl="aws sso login"
+
+alias senv="env | sort"
 
 
 # wsl issues with vpn
