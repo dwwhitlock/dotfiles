@@ -3,6 +3,7 @@
 
 
 brew install \
+    wget \
     awscli \
     neovim \
     python@3.11 \
@@ -12,7 +13,6 @@ brew install \
     fzf \
     k9s \
     kubectx \
-    npm \
     terraform \
     terragrunt \
     pre-commit \
