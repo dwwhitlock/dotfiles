@@ -8,9 +8,6 @@ fi
 export PATH=$HOME/bin:/usr/local/bin:$PATH
 export PATH=/opt/homebrew/bin:$PATH
 
-# Set PATH, MANPATH, etc., for Homebrew.
-eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-
 # Uncomment the following line to enable command auto-correction.
 ENABLE_CORRECTION="true"
 
@@ -48,6 +45,7 @@ export LANG=en_US.UTF-8
 export EDITOR=nvim
 
 
+
 # To customize prompt, run `p10k configure` or edit ~/  .p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
@@ -58,7 +56,14 @@ eval "$(pyenv init --path)"
 eval "$(direnv hook zsh)"
 
 
+# should not be version controlled
+source $HOME/.secrets
+
+
 source $HOME/.aliases
 export DOTFILES_ROOT="$HOME/dotfiles"
 
 source $(brew --prefix)/opt/powerlevel10k/powerlevel10k.zsh-theme
+### MANAGED BY RANCHER DESKTOP START (DO NOT EDIT)
+export PATH="/Users/dwightwhitlock/.rd/bin:$PATH"
+### MANAGED BY RANCHER DESKTOP END (DO NOT EDIT)
