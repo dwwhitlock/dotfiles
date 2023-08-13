@@ -20,10 +20,14 @@
   br = branch 
   ci = commit
   st = status
-  p = push  
+  p = push
+  aa = add --all
 
 [include]
   path = ~/.signing_git_config
 
 [includeIf "gitdir:~/dev/work/"]
   path = ~/dev/work/.gitconfig
+
+[url "git@github.com:"]
+  insteadOf = https://github.com/

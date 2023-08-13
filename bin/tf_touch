@@ -1,0 +1,21 @@
+#!/bin/bash
+
+# Check if an argument is provided
+if [ $# -ne 1 ]; then
+    echo "Usage: $0 <directory_path>"
+    exit 1
+fi
+
+# Get the directory path from the argument
+dir_path="$1"
+
+# Create the directory and all parent directories
+mkdir -p "$dir_path"
+
+# Create empty files
+touch "$dir_path/outputs.tf"
+touch "$dir_path/main.tf"
+touch "$dir_path/variables.tf"
+touch "$dir_path/data.tf"
+
+echo "Terraform files created in '$dir_path'."

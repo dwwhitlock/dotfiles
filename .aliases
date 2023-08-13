@@ -10,6 +10,8 @@ alias tg='terragrunt'
 alias tgf='terragrunt hclfmt'
 alias tfa='terraform apply'
 alias tfd='terraform destroy'
+alias tfp='terraform plan'
+alias tfi='terraform init'
 alias tfaa='tfa -auto-approve'
 alias tfda='tfd -auto-approve'
 alias rebirth="tfd -auto-approve && tfa --auto-approve"
@@ -22,6 +24,8 @@ alias pcra="pre-commit run --all-files"
 
 alias asl_session="aws sso login --sso-session my-sso"
 alias asl="aws sso login"
+alias assh="aws ssm star    t-session --target"
+
 
 alias senv="env | sort"
 
@@ -29,5 +33,4 @@ alias senv="env | sort"
 # wsl issues with vpn
 alias network_init="wsl.exe -d wsl-vpnkit --cd /app service wsl-vpnkit start &>/dev/null"
 
-# https://askubuntu.com/questions/468254/how-do-i-configure-a-default-principal-for-kinit-acquiring-kerberos-ticket
-alias kinit='/usr/bin/kinit $KRB_USER'
+alias vault_login="vault login -method oidc role=data-platform"
