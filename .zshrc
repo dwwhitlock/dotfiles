@@ -62,6 +62,9 @@ source $HOME/.secrets
 
 source $HOME/.aliases
 export DOTFILES_ROOT="$HOME/dotfiles"
+export PATH="$DOTFILES_ROOT/bin:$PATH"
+
+
 
 source $(brew --prefix)/opt/powerlevel10k/powerlevel10k.zsh-theme
 ### MANAGED BY RANCHER DESKTOP START (DO NOT EDIT)
