@@ -22,6 +22,8 @@
   st = status
   p = push
   aa = add --all
+  cleanup-branches = "!git branch -vv | grep ': gone]' | awk '{print $1}' | xargs -r git branch -d"
+
 
 [include]
   path = ~/.signing_git_config
