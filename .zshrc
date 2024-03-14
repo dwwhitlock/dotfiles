@@ -1,3 +1,12 @@
+export ZSH_THEME="powerlevel10k/powerlevel10k"
+# Path to your oh-my-zsh installation.
+export ZSH=$HOME/.oh-my-zsh
+source $ZSH/oh-my-zsh.sh
+
+# To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
+[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
+
+
 # Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
 # Initialization code that may require console input (password prompts, [y/n]
 # confirmations, etc.) must go above this block; everything else may go below.
@@ -45,10 +54,6 @@ export LANG=en_US.UTF-8
 export EDITOR=nvim
 
 
-
-# To customize prompt, run `p10k configure` or edit ~/  .p10k.zsh.
-[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
-
 export JAVA_HOME="/home/linuxbrew/.linuxbrew"
 export PYENV_ROOT="$HOME/.pyenv"
 export PATH="$PYENV_ROOT/bin:$PATH"
@@ -61,12 +66,10 @@ source $HOME/.secrets
 
 
 source $HOME/.aliases
-export DOTFILES_ROOT="$HOME/dotfiles"
+export DOTFILES_ROOT="$HOME/dev/dotfiles"
 export PATH="$DOTFILES_ROOT/bin:$PATH"
 
 
-
-source $(brew --prefix)/opt/powerlevel10k/powerlevel10k.zsh-theme
 ### MANAGED BY RANCHER DESKTOP START (DO NOT EDIT)
 export PATH="/Users/dwightwhitlock/.rd/bin:$PATH"
 ### MANAGED BY RANCHER DESKTOP END (DO NOT EDIT)
