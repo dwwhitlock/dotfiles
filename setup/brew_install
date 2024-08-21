@@ -1,7 +1,5 @@
 #!/usr/bin/env sh
 
-
-
 brew install \
     wget \
     awscli \
@@ -13,13 +11,13 @@ brew install \
     fzf \
     k9s \
     kubectx \
-    terraform \
-    terragrunt \
     pre-commit \
     tree \
-    java
+    java \
+    pinentry-mac
 
-    
+brew tap hashicorp/tap
+brew install hashicorp/tap/terraform
 
 mkdir ~/.fonts
 wget -P ~/.fonts https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Regular.ttf
