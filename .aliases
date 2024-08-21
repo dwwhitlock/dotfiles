@@ -37,3 +37,4 @@ alias vault_login="vault login -method oidc role=data-platform"
 
 #git
 alias pull_and_merge='git checkout main && git pull && git checkout - && git merge main'
+alias pull_and_rebase='git checkout main && git pull && git checkout - && git rebase main'
