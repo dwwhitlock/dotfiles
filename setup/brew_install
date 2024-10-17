@@ -14,7 +14,8 @@ brew install \
     pre-commit \
     tree \
     java \
-    pinentry-mac
+    pinentry-mac \
+    openjdk@11
 
 brew tap hashicorp/tap
 brew install hashicorp/tap/terraform

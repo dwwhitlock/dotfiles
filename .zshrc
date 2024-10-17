@@ -49,7 +49,6 @@ export EDITOR=nvim
 # To customize prompt, run `p10k configure` or edit ~/  .p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
-export JAVA_HOME="/home/linuxbrew/.linuxbrew"
 export PYENV_ROOT="$HOME/.pyenv"
 export PATH="$PYENV_ROOT/bin:$PATH"
 eval "$(pyenv init --path)"
@@ -70,3 +69,7 @@ source $(brew --prefix)/opt/powerlevel10k/powerlevel10k.zsh-theme
 ### MANAGED BY RANCHER DESKTOP START (DO NOT EDIT)
 export PATH="/Users/dwightwhitlock/.rd/bin:$PATH"
 ### MANAGED BY RANCHER DESKTOP END (DO NOT EDIT)
+
+
+export JAVA_HOME=/opt/homebrew/opt/openjdk@11/libexec/openjdk.jdk/Contents/Home
+export PATH=$JAVA_HOME/bin:$PATH
