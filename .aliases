@@ -33,8 +33,10 @@ alias senv="env | sort"
 # wsl issues with vpn
 alias network_init="wsl.exe -d wsl-vpnkit --cd /app service wsl-vpnkit start &>/dev/null"
 
-alias vault_login="vault login -method oidc role=data-platform"
+alias vault_login="vault login -method oidc role=devops"
 
 #git
 alias pull_and_merge='git checkout main && git pull && git checkout - && git merge main'
 alias pull_and_rebase='git checkout main && git pull && git checkout - && git rebase main'
+
+alias pc="pycharm"
