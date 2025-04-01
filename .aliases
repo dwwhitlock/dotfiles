@@ -34,6 +34,8 @@ alias senv="env | sort"
 alias network_init="wsl.exe -d wsl-vpnkit --cd /app service wsl-vpnkit start &>/dev/null"
 
 alias vault_login="vault login -method oidc role=devops"
+alias login="asl && vault_login"
+
 
 #git
 alias pull_and_merge='git checkout main && git pull && git checkout - && git merge main'
