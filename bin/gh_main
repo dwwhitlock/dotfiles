@@ -1,0 +1,18 @@
+#!/bin/bash
+
+remote_url=$(git remote get-url origin)
+repo_url=$(echo "$remote_url" | sed -E 's#git@github.com:(.*)\.git#https://github.com/\1#' | sed -E 's#https://github.com/(.*)#https://github.com/\1#')
+main_url="$repo_url/tree/main"
+
+echo "Remote origin: $remote_url"
+echo "Repository URL: $repo_url"
+echo "Main branch URL: $main_url"
+
+if [[ "$(uname)" == "Darwin" ]]; then
+    open "$main_url"
+elif [[ "$(uname)" == "Linux" ]]; then
+    xdg-open "$main_url"
+else
+    echo "Unsupported OS: $(uname)"
+    exit 1
+fi
