@@ -13,6 +13,7 @@ alias tfd='terraform destroy'
 alias tfp='terraform plan'
 alias tfi='terraform init'
 alias tfaa='tfa -auto-approve'
+alias tfw='terraform workspace'
 alias tfda='tfd -auto-approve'
 alias rebirth="tfd -auto-approve && tfa --auto-approve"
 
@@ -34,7 +35,7 @@ alias senv="env | sort"
 alias network_init="wsl.exe -d wsl-vpnkit --cd /app service wsl-vpnkit start &>/dev/null"
 
 alias vault_login="vault login -method oidc role=devops"
-alias login="asl && vault_login"
+alias cloud_login="asl && vault_login"
 
 
 #git

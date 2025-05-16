@@ -1,0 +1,21 @@
+#!/bin/bash
+
+branch=$(git rev-parse --abbrev-ref HEAD)
+remote_url=$(git remote get-url origin)
+repo_url=$(echo "$remote_url" | sed -E 's#git@github.com:(.*)\.git#https://github.com/\1#' | sed -E 's#https://github.com/(.*)#https://github.com/\1#')
+pr_url="$repo_url/compare/main...$branch?expand=1"
+
+echo "Current branch: $branch"
+echo "Remote origin: $remote_url"
+echo "Repository URL: $repo_url"
+echo "Pull request URL: $pr_url"
+
+# Platform-specific open command
+if [[ "$(uname)" == "Darwin" ]]; then
+    open "$pr_url"  # macOS
+elif [[ "$(uname)" == "Linux" ]]; then
+    xdg-open "$pr_url"  # Linux
+else
+    echo "Unsupported OS: $(uname)"
+    exit 1
+fi
