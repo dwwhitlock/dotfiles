@@ -1,25 +1,35 @@
 #!/usr/bin/env sh
 
 brew install \
-    wget \
     awscli \
-    neovim \
-    python@3.11 \
-    pyenv \
     direnv \
-    jq \
     fzf \
+    java \
+    jq \
     k9s \
     kubectx \
-    pre-commit \
-    tree \
-    java \
+    neovim \
+    openjdk@11 \
     pinentry-mac \
-    openjdk@11
+    pre-commit \
+    protolint \
+    pyenv \
+    python@3.11 \
+    ruff \
+    terraform-docs \
+    tree \
+    vault \
+    wget
+
 
 brew tap hashicorp/tap
 brew install hashicorp/tap/terraform
 
+brew tap databricks/tap
+brew install databricks
+
+
+# optional: terminal & font customization
 mkdir ~/.fonts
 wget -P ~/.fonts https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Regular.ttf
 wget -P ~/.fonts https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Bold.ttf
