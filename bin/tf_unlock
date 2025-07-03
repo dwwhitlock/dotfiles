@@ -59,17 +59,166 @@ get_lock_id() {
     fi
 }
 
+# Function to unlock multiple workspaces
+tf_unlock_workspaces() {
+    if [ $# -eq 0 ]; then
+        echo "❌ No workspaces provided."
+        echo "Usage: tf_unlock_workspaces workspace1 workspace2 ..."
+        return 1
+    fi
+
+    local current_workspace
+    current_workspace=$(terraform workspace show 2>/dev/null)
+
+    if [ $? -ne 0 ]; then
+        echo "❌ Could not determine current workspace"
+        return 1
+    fi
+
+    echo "Current workspace: $current_workspace"
+    echo "Processing workspaces: $@"
+    echo "=================================="
+
+    local success_count=0
+    local fail_count=0
+    local processed_workspaces=()
+
+    for workspace in "$@"; do
+        echo ""
+        echo "🔄 Processing workspace: $workspace"
+        echo "-----------------------------------"
+
+        # Check if workspace exists
+        if ! terraform workspace list | grep -q "^[[:space:]]*$workspace$\|^[[:space:]]*\*[[:space:]]*$workspace$"; then
+            echo "⚠️  Workspace '$workspace' does not exist. Skipping..."
+            ((fail_count++))
+            continue
+        fi
+
+        # Switch to workspace
+        echo "Switching to workspace: $workspace"
+        if terraform workspace select "$workspace" 2>/dev/null; then
+            echo "✅ Switched to workspace: $workspace"
+
+            # Try to unlock
+            echo "Checking for locks in workspace: $workspace"
+            tf_output=$(terraform refresh 2>&1)
+
+            if echo "$tf_output" | grep -q "Error acquiring the state lock"; then
+                echo "🔒 Lock detected in workspace: $workspace"
+
+                # Extract lock ID
+                lock_id=$(echo "$tf_output" | grep -A 10 "Lock Info:" | grep "ID:" | sed 's/.*ID:[[:space:]]*\([^[:space:]]*\).*/\1/')
+
+                if [ -n "$lock_id" ]; then
+                    echo "Found lock ID: $lock_id"
+                    echo "Attempting to force unlock..."
+
+                    if terraform force-unlock -force "$lock_id"; then
+                        echo "✅ Successfully unlocked workspace: $workspace"
+                        ((success_count++))
+                        processed_workspaces+=("$workspace ✅")
+                    else
+                        echo "❌ Failed to unlock workspace: $workspace"
+                        ((fail_count++))
+                        processed_workspaces+=("$workspace ❌")
+                    fi
+                else
+                    echo "❌ Could not extract lock ID from workspace: $workspace"
+                    ((fail_count++))
+                    processed_workspaces+=("$workspace ❌ (no lock ID)")
+                fi
+            else
+                echo "✅ No lock detected in workspace: $workspace"
+                ((success_count++))
+                processed_workspaces+=("$workspace ✅ (no lock)")
+            fi
+        else
+            echo "❌ Failed to switch to workspace: $workspace"
+            ((fail_count++))
+            processed_workspaces+=("$workspace ❌ (switch failed)")
+        fi
+    done
+
+    # Switch back to original workspace
+    echo ""
+    echo "🔄 Switching back to original workspace: $current_workspace"
+    if terraform workspace select "$current_workspace" 2>/dev/null; then
+        echo "✅ Switched back to workspace: $current_workspace"
+    else
+        echo "❌ Failed to switch back to workspace: $current_workspace"
+    fi
+
+    # Summary
+    echo ""
+    echo "=================================="
+    echo "📊 SUMMARY"
+    echo "=================================="
+    echo "Total workspaces processed: $(($success_count + $fail_count))"
+    echo "Successful: $success_count"
+    echo "Failed: $fail_count"
+    echo ""
+    echo "Workspace Results:"
+    for result in "${processed_workspaces[@]}"; do
+        echo "  $result"
+    done
+    echo "=================================="
+
+    return $fail_count
+}
+
+# Function to unlock all workspaces
+tf_unlock_all_workspaces() {
+    echo "Getting list of all workspaces..."
+
+    # Get all workspaces except default (remove * and whitespace)
+    local workspaces
+    workspaces=$(terraform workspace list | grep -v "default" | sed 's/[* ]//g' | grep -v "^$")
+
+    if [ -z "$workspaces" ]; then
+        echo "No additional workspaces found (only default exists)"
+        return 0
+    fi
+
+    echo "Found workspaces:"
+    echo "$workspaces"
+    echo ""
+
+    # Convert to array and call tf_unlock_workspaces
+    local workspace_array=($workspaces)
+    tf_unlock_workspaces "${workspace_array[@]}"
+}
+
 # Main execution
 case "${1:-unlock}" in
     "unlock")
         tf_unlock
         ;;
+    "unlock-alt")
+        tf_unlock_alt
+        ;;
+    "unlock-alt")
+        tf_unlock_alt
+        ;;
     "get-id")
         get_lock_id
         ;;
+    "unlock-workspaces")
+        shift
+        tf_unlock_workspaces "$@"
+        ;;
+    "unlock-all")
+        tf_unlock_all_workspaces
+        ;;
     *)
-        echo "Usage: $0 [unlock|unlock-alt|get-id]"
-        echo "  unlock     - Extract lock ID and force unlock (default)"
-        echo "  get-id     - Just extract and display the lock ID"
+        echo "Usage: $0 [unlock|get-id|unlock-workspaces|unlock-all]"
+        echo "  unlock              - Extract lock ID and force unlock (default)"
+        echo "  get-id              - Just extract and display the lock ID"
+        echo "  unlock-workspaces   - Unlock specific workspaces: unlock-workspaces ws1 ws2 ws3"
+        echo "  unlock-all          - Unlock all workspaces (except default)"
+        echo ""
+        echo "Examples:"
+        echo "  $0 unlock-workspaces dev staging prod"
+        echo "  $0 unlock-all"
         ;;
 esac
