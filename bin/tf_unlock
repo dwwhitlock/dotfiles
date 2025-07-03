@@ -1,0 +1,75 @@
+#!/bin/bash
+
+# Function to extract lock ID from terraform output and unlock
+tf_unlock() {
+    echo "Attempting to get lock information..."
+
+    # Run terraform refresh to get lock info, capture both stdout and stderr
+    tf_output=$(terraform refresh 2>&1)
+
+    # Check if there's a lock error
+    if echo "$tf_output" | grep -q "Error acquiring the state lock"; then
+        echo "Lock detected. Extracting lock ID..."
+
+        # Extract the lock ID using grep and sed
+        lock_id=$(echo "$tf_output" | grep -A 10 "Lock Info:" | grep "ID:" | sed 's/.*ID:[[:space:]]*\([^[:space:]]*\).*/\1/')
+
+        if [ -n "$lock_id" ]; then
+            echo "Found lock ID: $lock_id"
+            echo "Attempting to force unlock..."
+
+            # Force unlock using the extracted ID
+            terraform force-unlock -force "$lock_id"
+
+            if [ $? -eq 0 ]; then
+                echo "✅ Successfully unlocked state!"
+                echo "You can now run terraform commands normally."
+            else
+                echo "❌ Failed to unlock state. You may need to manually resolve this."
+            fi
+        else
+            echo "❌ Could not extract lock ID from output."
+            echo "Lock output:"
+            echo "$tf_output"
+        fi
+    else
+        echo "✅ No lock detected. State is available."
+    fi
+}
+
+# Function to just get the lock ID without unlocking
+get_lock_id() {
+    echo "Getting lock ID..."
+
+    tf_output=$(terraform refresh 2>&1)
+
+    if echo "$tf_output" | grep -q "Error acquiring the state lock"; then
+        lock_id=$(echo "$tf_output" | grep -A 10 "Lock Info:" | grep "ID:" | sed 's/.*ID:[[:space:]]*\([^[:space:]]*\).*/\1/')
+
+        if [ -n "$lock_id" ]; then
+            echo "Lock ID: $lock_id"
+            return 0
+        else
+            echo "Could not extract lock ID"
+            return 1
+        fi
+    else
+        echo "No lock detected"
+        return 1
+    fi
+}
+
+# Main execution
+case "${1:-unlock}" in
+    "unlock")
+        tf_unlock
+        ;;
+    "get-id")
+        get_lock_id
+        ;;
+    *)
+        echo "Usage: $0 [unlock|unlock-alt|get-id]"
+        echo "  unlock     - Extract lock ID and force unlock (default)"
+        echo "  get-id     - Just extract and display the lock ID"
+        ;;
+esac
