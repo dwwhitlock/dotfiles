@@ -20,5 +20,6 @@ touch "$dir_path/variables.tf"
 touch "$dir_path/data.tf"
 touch "$dir_path/providers.tf"
 touch "$dir_path/.header.md"
+touch "$dir_path/backend.tf"
 
 echo "Terraform files created in '$dir_path'."
