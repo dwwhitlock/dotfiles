@@ -1,7 +1,10 @@
 #!/usr/bin/env sh
 
+
 brew install \
+    apache-spark \
     awscli \
+    bufbuild/buf/buf \
     direnv \
     fzf \
     java \
@@ -11,22 +14,28 @@ brew install \
     neovim \
     openjdk@11 \
     pinentry-mac \
+    pipx \
     pre-commit \
     protolint \
     pyenv \
     python@3.11 \
     ruff \
+    shellcheck \
     terraform-docs \
     tree \
-    vault \
-    wget
+    wget \
+    yamllint
 
+pipx ensurepath
 
 brew tap hashicorp/tap
 brew install hashicorp/tap/terraform
+brew install hashicorp/tap/vault
 
 brew tap databricks/tap
 brew install databricks
+
+brew install --cask rancher
 
 
 # optional: terminal & font customization

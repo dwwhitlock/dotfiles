@@ -25,14 +25,10 @@ alias pcra="pre-commit run --all-files"
 
 alias asl_session="aws sso login --sso-session my-sso"
 alias asl="aws sso login"
-alias assh="aws ssm star    t-session --target"
+alias assh="aws ssm start-session --target"
 
 
 alias senv="env | sort"
-
-
-# wsl issues with vpn
-alias network_init="wsl.exe -d wsl-vpnkit --cd /app service wsl-vpnkit start &>/dev/null"
 
 alias vault_login="vault login -method oidc role=devops"
 alias cloud_login="asl && vault_login"
@@ -43,3 +39,4 @@ alias pull_and_merge='git checkout main && git pull && git checkout - && git mer
 alias pull_and_rebase='git checkout main && git pull && git checkout - && git rebase main'
 
 alias pc="pycharm"
+alias aic="aicommits"
