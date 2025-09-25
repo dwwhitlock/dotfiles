@@ -51,21 +51,28 @@ export EDITOR=nvim
 
 export PYENV_ROOT="$HOME/.pyenv"
 export PATH="$PYENV_ROOT/bin:$PATH"
+export PYENV_VERSION=3.13
 eval "$(pyenv init --path)"
 eval "$(direnv hook zsh)"
 
 
+
+export DOTFILES_ROOT="$HOME/personal/dotfiles"
+export WORK_DOTFILES_ROOT="$HOME/personal/work-dotfiles"
+
+export PATH="$DOTFILES_ROOT/bin:$PATH"
+export PATH="$WORK_DOTFILES_ROOT/bin:$PATH"
+export PATH="$HOME/.local/bin:$PATH"
+export PATH="$(npm prefix -g):$PATH"
+
 # should not be version controlled
 source $HOME/.secrets
-
-
 source $HOME/.aliases
-export DOTFILES_ROOT="$HOME/dotfiles"
-export PATH="$DOTFILES_ROOT/bin:$PATH"
+source $WORK_DOTFILES_ROOT/.work_aliases
 
 
+source /opt/homebrew/share/powerlevel10k/powerlevel10k.zsh-theme
 
-source $(brew --prefix)/opt/powerlevel10k/powerlevel10k.zsh-theme
 ### MANAGED BY RANCHER DESKTOP START (DO NOT EDIT)
 export PATH="/Users/dwightwhitlock/.rd/bin:$PATH"
 ### MANAGED BY RANCHER DESKTOP END (DO NOT EDIT)
