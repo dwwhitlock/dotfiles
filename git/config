@@ -25,6 +25,7 @@
   st = status
   p = push
   aa = add --all
+  reset-main = "!git checkout main && git reset --hard origin/main"
   cleanup-branches = "!git branch -vv | grep ': gone]' | awk '{print $1}' | xargs -r git branch -d"
 
 
