@@ -57,8 +57,8 @@ eval "$(direnv hook zsh)"
 
 
 
-export DOTFILES_ROOT="$HOME/personal/dotfiles"
-export CN_DOTFILES_ROOT="$HOME/personal/cn-dotfiles"
+export DOTFILES_ROOT="$HOME/code/personal/dotfiles"
+export CN_DOTFILES_ROOT="$HOME/code/personal/cn-dotfiles"
 
 export PATH="$DOTFILES_ROOT/bin:$PATH"
 export PATH="$CN_DOTFILES_ROOT/bin:$PATH"
@@ -80,3 +80,5 @@ export PATH="/Users/dwightwhitlock/.rd/bin:$PATH"
 
 export JAVA_HOME=/opt/homebrew/opt/openjdk@11/libexec/openjdk.jdk/Contents/Home
 export PATH=$JAVA_HOME/bin:$PATH
+
+alias claude="/Users/dwightwhitlock/.claude/local/claude"
