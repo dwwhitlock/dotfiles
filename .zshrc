@@ -59,6 +59,7 @@ eval "$(direnv hook zsh)"
 
 export DOTFILES_ROOT="$HOME/code/personal/dotfiles"
 export CN_DOTFILES_ROOT="$HOME/code/personal/cn-dotfiles"
+export CLAUDE_CODE_USE_BEDROCK=1
 
 export PATH="$DOTFILES_ROOT/bin:$PATH"
 export PATH="$CN_DOTFILES_ROOT/bin:$PATH"
@@ -77,8 +78,8 @@ source /opt/homebrew/share/powerlevel10k/powerlevel10k.zsh-theme
 export PATH="/Users/dwightwhitlock/.rd/bin:$PATH"
 ### MANAGED BY RANCHER DESKTOP END (DO NOT EDIT)
 
-
-export JAVA_HOME=/opt/homebrew/opt/openjdk@11/libexec/openjdk.jdk/Contents/Home
-export PATH=$JAVA_HOME/bin:$PATH
+# Java 17 (required for PySpark 4.x)
+export JAVA_HOME="/opt/homebrew/opt/openjdk@17"
+export PATH="$JAVA_HOME/bin:$PATH"
 
 alias claude="/Users/dwightwhitlock/.claude/local/claude"

@@ -1,7 +1,10 @@
 # General
-.DS_Store
+**.DS_Store
 
 # Jetbrains
-.idea/
+**.idea/
 
-**.CLAUDE.md
+# Claude Code - ignore local settings but keep shareable config
+.claude/*
+!.claude/skills/
+!.claude/CLAUDE.md
