@@ -30,7 +30,7 @@ alias assh="aws ssm start-session --target"
 
 alias senv="env | sort"
 
-alias vault_login="vault login -method oidc role=devops"
+alias vault_login="vault login -method oidc role=data-platform"
 alias cloud_login="asl && vault_login"
 
 
@@ -40,3 +40,7 @@ alias pull_and_rebase='git checkout main && git pull && git checkout - && git re
 
 alias pc="pycharm"
 alias aic="aicommits"
+
+
+# claude
+alias claude_danger='claude --dangerously-skip-permissions'
