@@ -40,3 +40,7 @@ alias pull_and_rebase='git checkout main && git pull && git checkout - && git re
 
 alias pc="pycharm"
 alias aic="aicommits"
+
+
+# claude
+alias claude_danger='claude --dangerously-skip-permissions'
