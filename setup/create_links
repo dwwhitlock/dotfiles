@@ -11,3 +11,7 @@ ln -sf $PROJECT_ROOT/.zshrc ~/.zshrc
 ln -sf $PROJECT_ROOT/.aliases ~/.aliases
 ln -sf $PROJECT_ROOT/.secrets ~/.secrets
 
+# repo index + status script, used from ~/code
+ln -sfn $PROJECT_ROOT/code/CLAUDE.md ~/code/CLAUDE.md
+ln -sfn $PROJECT_ROOT/code/status.sh ~/code/status.sh
+
