@@ -83,3 +83,4 @@ export PATH="$BUN_INSTALL/bin:$PATH"
 
 # zstyle ':completion:*' menu select
 eval "$(starship init zsh)"
+eval "$(zoxide init zsh)"

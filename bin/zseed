@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Seed zoxide with every repo under ~/code so they are jumpable via `z <fragment>`
+# before ever having visited them. Safe to re-run; zoxide dedupes by path.
+
+set -euo pipefail
+
+CODE_DIR="${CODE_DIR:-$HOME/code}"
+
+if ! command -v zoxide >/dev/null 2>&1; then
+  echo "zseed: zoxide is not installed (brew install zoxide)" >&2
+  exit 1
+fi
+
+count=0
+while IFS= read -r gitdir; do
+  repo="${gitdir%/.git}"
+  zoxide add "$repo"
+  count=$((count + 1))
+done < <(find "$CODE_DIR" -mindepth 1 -maxdepth 3 -name .git -type d 2>/dev/null | sort)
+
+echo "zseed: seeded $count repos from $CODE_DIR"
