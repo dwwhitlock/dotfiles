@@ -20,11 +20,11 @@
   # than once; `current` makes the branch name the only thing that picks the
   # destination.
   #
-  # These push settings, and the pre-push hook under core.hooksPath, exist
-  # explicitly so that LLM coding agents running git on this machine cannot
-  # accidentally push to main or force-push. Agents inherit this config and
-  # these hooks like any other process, and an agent working in a worktree
-  # branched from origin/main is exactly how the last incident happened.
+  # These push settings, and the pre-push hook under core.hooksPath, exist so
+  # that LLM coding agents running git on this machine do not accidentally push
+  # to main or force-push. Agents inherit this config and these hooks like any
+  # other process, and an agent working in a worktree branched from origin/main
+  # is exactly how the last incident happened.
   default = current
   autoSetupRemote = true
   # Make --force-with-lease also refuse when the remote moved since we last
@@ -56,9 +56,13 @@
   # set locally) may push to main, and force pushes to
   # refs/heads/dwightwhitlock/* need no opt-in. Force pushes to main always do.
   #
-  # Overrides are environment variables a human puts on one command
-  # (ALLOW_PROTECTED_PUSH=1, ALLOW_FORCE_PUSH=1), so an LLM agent cannot
-  # satisfy them by constructing a different git invocation.
+  # Overrides are environment variables on one command (ALLOW_PROTECTED_PUSH=1,
+  # ALLOW_FORCE_PUSH=1): hard to set by accident, visible in shell history.
+  #
+  # Scope: this catches accidents, human or agent. It is not a security
+  # boundary. Anything that runs a shell can set the variable, pass
+  # --no-verify, or override core.hooksPath. Enforcement belongs server-side in
+  # branch protection / rulesets (platform-github for the org).
   #
   # Known gap: a repo that sets its own core.hooksPath (husky, lefthook) hides
   # these hooks for that repo. ~/code/status.sh flags such repos in its HOOKS

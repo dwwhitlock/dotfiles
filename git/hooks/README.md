@@ -25,12 +25,20 @@ machine, including any LLM coding agent that runs git here.
 
 ## Overrides
 
-Environment variables on a single command, set by a human:
+Environment variables on a single command:
 
 ```
 ALLOW_PROTECTED_PUSH=1 git push origin main
 ALLOW_FORCE_PUSH=1     git pushf          # pushf = push --force-with-lease --force-if-includes
 ```
+
+## Scope
+
+These hooks catch accidents, whether a human or an LLM agent typed the command.
+They are not a security boundary: anything that runs a shell can set the
+variable, pass `--no-verify`, or override `core.hooksPath`. Enforcement against
+a deliberate push belongs server-side, in branch protection or rulesets
+(`platform-github` for the org).
 
 ## Known gap
 
@@ -44,6 +52,5 @@ hooks for that repository. `~/code/status.sh` flags any such repo in its
 |---|---|
 | `pre-push` | the guard, then hands off to `_chain` |
 | `_chain` | runs the pre-commit framework and/or the repo-local hook for an event |
-| `pre-commit`, `commit-msg`, … | one-line wrappers that call `_chain <event>` |
-| `post-rewrite` | wrapper that buffers stdin before calling `_chain` |
-| `test_pre_push` | 36 scenarios against throwaway repos; run after any change here or in `git/config` |
+| `pre-commit`, `commit-msg`, … | symlinks to `_chain`, which takes the event from its own name |
+| `test_pre_push` | scenarios against throwaway repos; run after any change here or in `git/config` |

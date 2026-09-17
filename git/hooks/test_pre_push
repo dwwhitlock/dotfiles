@@ -16,6 +16,7 @@ verbose=0; [ "${1:-}" = "-v" ] && verbose=1
 pass=0; fail=0
 S="$(mktemp -d)"
 trap 'rm -rf "$S"' EXIT
+export TMPDIR="$S"   # so any tempfile a hook leaks lands where the last check can see it
 export GIT_CONFIG_NOSYSTEM=1
 export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=test@example.com GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=test@example.com
 
@@ -127,6 +128,11 @@ YAML
   git add .pre-commit-config.yaml
   t "config naming pre-push stage: commit allowed" allow git -c commit.gpgsign=false commit -q -m cfg2
   t "config naming pre-push stage: push blocked by framework" block git push origin feat
+  printf '#!/bin/sh\nread l ls r rs; echo "$r" > %s/both.txt\nexit 0\n' "$S" > .git/hooks/pre-push; chmod +x .git/hooks/pre-push
+  sed -i.bak 's/exit 1/exit 0/' .pre-commit-config.yaml && rm .pre-commit-config.yaml.bak && git add .pre-commit-config.yaml && c cfg3
+  t "framework and repo-local pre-push both run; local one still sees refs" allow sh -c "git push -q origin feat && grep -q refs/heads/feat '$S/both.txt'"
+  sed -i.bak 's/exit 0/exit 1/' .pre-commit-config.yaml && rm .pre-commit-config.yaml.bak && git add .pre-commit-config.yaml && c cfg4
+  rm -f .git/hooks/pre-push
   GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0= pre-commit install -t pre-push >/dev/null 2>&1
   t "legacy installed framework stub is not run twice (still exactly blocked)" block git push origin feat
   rm -f .git/hooks/pre-push .pre-commit-config.yaml; git rm -q --cached .pre-commit-config.yaml 2>/dev/null; c cleanup
@@ -140,6 +146,9 @@ t "worktree branch from origin/main has no upstream" allow test -z "$(git config
 c wt1
 t "worktree push goes to same-named branch" allow sh -c 'git push -q origin && git ls-remote --heads origin | grep -q refs/heads/wtbranch'
 t "worktree push to main still blocked" block git push origin HEAD:main
+
+say "--- hygiene"
+t "hooks leave no tempfiles behind" allow test -z "$(find "$S" -mindepth 1 -maxdepth 1 -name 'tmp.*')"
 
 say
 say "passed=$pass failed=$fail"

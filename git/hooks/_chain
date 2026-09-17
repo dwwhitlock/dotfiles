@@ -8,58 +8,52 @@
 #      the framework directly via `pre-commit hook-impl`, exactly as the script
 #      `pre-commit install` would have written. No install step is needed in
 #      any repo, ever. `pre-commit install` refuses under core.hooksPath anyway.
-#      To match the framework's own default (install with no flags = the
-#      pre-commit stage only), other stages run only when the config names
-#      that stage explicitly, so a repo's hooks do not start firing at push or
-#      commit-msg time just because we can now invoke those stages.
+#      The pre-commit stage always runs. Other stages run only when the config
+#      names that stage, so a repo's hooks do not start firing at push or
+#      commit-msg time just because we can now invoke those stages. This is a
+#      little broader than `pre-commit install` with no flags, which installed
+#      only the pre-commit stage and left the rest to `-t <stage>`.
 #   2. If the repo has an executable .git/hooks/<event> (husky, lefthook, a
 #      hand-written hook, or a legacy `pre-commit install`), run it. Skipped
 #      when it is itself a pre-commit framework stub and step 1 already ran,
 #      so the framework never runs twice.
 #
-# Usage from a wrapper:  exec "$(dirname "$0")/_chain" <event> "$@"
-# Events that receive data on stdin (pre-push, post-rewrite) must have it
-# replayed by the caller; see pre-push, which passes "< $refs".
+# The event-named files here (pre-commit, commit-msg, ...) are symlinks to this
+# script; the event is taken from the name it was invoked by. pre-push is a real
+# script that runs its guard first and then calls `_chain pre-push "$@"`.
 
-event="$1"; shift
+case "$(basename "$0")" in
+  _chain) event="$1"; shift ;;
+  *)      event="$(basename "$0")" ;;
+esac
 
 # Not inside a work tree (bare repo, or invoked oddly): nothing to chain to.
 root="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
-common="$(git rev-parse --git-common-dir 2>/dev/null)" || exit 0
-case "$common" in /*) ;; *) common="$root/$common" ;; esac
+common="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || exit 0
+
+# Events that receive data on stdin: buffer it so both steps can read it.
+input=
+case "$event" in pre-push|post-rewrite) input=$(cat) ;; esac
+replay() { printf '%s\n' "$input" | "$@"; }
 
 ran_framework=0
 cfg="$root/.pre-commit-config.yaml"
-if [ -f "$cfg" ] && command -v pre-commit >/dev/null 2>&1; then
-  run=0
-  case "$event" in
-    pre-commit) run=1 ;;
-    *)
-      # Legacy stage spellings still appear in older configs.
-      case "$event" in
-        pre-push)         alt="push" ;;
-        pre-merge-commit) alt="merge-commit" ;;
-        *)                alt="$event" ;;
-      esac
-      if grep -Eq "(^|[^a-z_])(stages|default_stages)[[:space:]]*:" "$cfg" \
-        && grep -Eq "(^|[^a-z-])($event|$alt)([^a-z-]|$)" "$cfg"; then
-        run=1
-      fi
-      ;;
-  esac
-  if [ "$run" = 1 ]; then
+if [ -f "$cfg" ]; then
+  if ! command -v pre-commit >/dev/null 2>&1; then
+    echo "$event: $cfg present but pre-commit is not on PATH; skipping the framework" >&2
+  elif [ "$event" = pre-commit ] \
+    || { grep -Eq "(^|[^a-z_])(stages|default_stages)[[:space:]]*:" "$cfg" \
+         && grep -Eq "(^|[^a-z-])$event([^a-z-]|$)" "$cfg"; }; then
     ran_framework=1
-    pre-commit hook-impl --config "$cfg" --hook-type "$event" --hook-dir "$common/hooks" --skip-on-missing-config -- "$@"
-    rc=$?
-    [ "$rc" -ne 0 ] && exit "$rc"
+    replay pre-commit hook-impl --config "$cfg" --hook-type "$event" --hook-dir "$common/hooks" --skip-on-missing-config -- "$@" || exit $?
   fi
 fi
 
 local_hook="$common/hooks/$event"
 if [ -x "$local_hook" ]; then
-  if [ "$ran_framework" = 1 ] && grep -q "hook-impl" "$local_hook" 2>/dev/null; then
+  # A legacy `pre-commit install` stub would run the framework a second time.
+  if [ "$ran_framework" = 1 ] && grep -q hook-impl "$local_hook" 2>/dev/null; then
     exit 0
   fi
-  exec "$local_hook" "$@"
+  replay "$local_hook" "$@"
 fi
-exit 0
