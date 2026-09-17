@@ -1,0 +1,87 @@
+#!/usr/bin/env sh
+# Global pre-push guard, installed via core.hooksPath (see git/config).
+# Tests: git/hooks/test_pre_push (run it after any change here or in git/config).
+#
+# Refuses, in order:
+#   1. deleting a protected branch (main/master)     -> always
+#   2. pushing to a protected branch                 -> unless the repo is personal
+#                                                       or ALLOW_PROTECTED_PUSH=1
+#   3. a non-fast-forward (force) push               -> to refs/heads/dwightwhitlock/*: allowed
+#                                                       anywhere else, main included: unless ALLOW_FORCE_PUSH=1
+# then hands off to _chain, which runs the pre-commit framework and/or the
+# repository's own pre-push hook with the ref list replayed on stdin.
+#
+# "Personal" means the push URL is owned by dwwhitlock on GitHub, or the repo
+# has `git config hooks.protectedPushOk true` set locally. Direct pushes to
+# main are normal there; the guard is for shared repositories.
+#
+# The opt-ins are environment variables on purpose: they cannot be set by
+# accident, and they leave a trace in shell history.
+#   ALLOW_PROTECTED_PUSH=1 git push origin main
+#   ALLOW_FORCE_PUSH=1     git pushf
+#
+# Scope: this stops *accidental* pushes, by a human or by an LLM coding agent
+# running git on this machine. It is not a security boundary. Anything that can
+# run a shell can set the variable, pass --no-verify, or override
+# core.hooksPath. Enforcement against a deliberate push belongs server-side, in
+# branch protection / rulesets (platform-github for the org).
+
+remote="$1"
+url="$2"
+zero=0000000000000000000000000000000000000000
+status=0
+
+personal=0
+if printf '%s' "$url" | grep -Eqi 'github\.com[:/]dwwhitlock/'; then personal=1; fi
+if [ "$(git config --type=bool --get hooks.protectedPushOk 2>/dev/null)" = true ]; then personal=1; fi
+
+# Buffer stdin so it can be replayed to _chain after the checks.
+input=$(cat)
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ -z "$remote_ref" ] && continue
+
+  is_protected=0
+  case "$remote_ref" in refs/heads/main|refs/heads/master) is_protected=1 ;; esac
+
+  # Deletion: refuse for protected branches, otherwise nothing more to check.
+  if [ "$local_sha" = "$zero" ]; then
+    if [ "$is_protected" = 1 ]; then
+      echo "pre-push: refusing to delete protected branch $remote_ref on $remote" >&2
+      status=1
+    fi
+    continue
+  fi
+
+  if [ "$is_protected" = 1 ] && [ "$personal" != 1 ] && [ "${ALLOW_PROTECTED_PUSH:-0}" != 1 ]; then
+    echo "pre-push: refusing to push $local_ref -> $remote_ref on $remote." >&2
+    echo "          Open a pull request. One-time override: ALLOW_PROTECTED_PUSH=1 git push ..." >&2
+    echo "          Personal repo? git config hooks.protectedPushOk true" >&2
+    status=1
+    continue
+  fi
+
+  # Non-fast-forward: the remote tip is not an ancestor of what we are pushing
+  # (or is not in the local object store at all, which a fetch fixes).
+  if [ "$remote_sha" != "$zero" ] && ! git merge-base --is-ancestor "$remote_sha" "$local_sha" 2>/dev/null; then
+    case "$remote_ref" in
+      refs/heads/dwightwhitlock/*) ;; # own feature branches may be rewritten freely
+      *)
+        if [ "${ALLOW_FORCE_PUSH:-0}" != 1 ]; then
+          echo "pre-push: $remote_ref on $remote is not an ancestor of $local_ref (force push, or you need to git fetch first)." >&2
+          echo "          One-time override: ALLOW_FORCE_PUSH=1 git pushf" >&2
+          status=1
+          continue
+        fi
+        ;;
+    esac
+  fi
+done <<EOR
+$input
+EOR
+
+[ "$status" -ne 0 ] && exit "$status"
+
+# Hand off to the shared dispatcher (pre-commit framework and/or the repo-local
+# .git/hooks/pre-push) with the ref list replayed on stdin.
+printf '%s\n' "$input" | exec "$(dirname "$0")/_chain" pre-push "$@"

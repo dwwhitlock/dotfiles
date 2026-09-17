@@ -14,8 +14,60 @@
   prune = true
 
 [push]
-  default = upstream
+  # Push to the same-named branch on the remote, never to whatever the local
+  # branch happens to track. With `upstream`, a branch created from origin/main
+  # tracked main, so `git push` from it wrote to main. That has happened more
+  # than once; `current` makes the branch name the only thing that picks the
+  # destination.
+  #
+  # These push settings, and the pre-push hook under core.hooksPath, exist so
+  # that LLM coding agents running git on this machine do not accidentally push
+  # to main or force-push. Agents inherit this config and these hooks like any
+  # other process, and an agent working in a worktree branched from origin/main
+  # is exactly how the last incident happened.
+  default = current
   autoSetupRemote = true
+  # Make --force-with-lease also refuse when the remote moved since we last
+  # fetched it, closing the window a background fetch would otherwise open.
+  useForceIfIncludes = true
+
+[branch]
+  # Track only when the local and remote names match. `git checkout -b x
+  # origin/main` and `git worktree add -b x origin/main` no longer make x track
+  # main, but `git checkout x` from an existing origin/x still tracks it, so
+  # `git pull` on checked-out branches keeps working. (`false` broke that.)
+  autoSetupMerge = simple
+
+[core]
+  # Global hooks, from git/hooks in this repo (see git/hooks/README.md).
+  #
+  # Requirements these hooks meet, in every repository on this machine, with
+  # no per-repo setup:
+  #   1. Nothing, human or LLM agent, pushes to main/master in a shared repo
+  #      or force-pushes anything by accident. Deleting main is never allowed.
+  #   2. Repositories keep every hook they set up for themselves. Repo-local
+  #      .git/hooks still run, and a .pre-commit-config.yaml runs on its own
+  #      without `pre-commit install` (which refuses under core.hooksPath).
+  #   3. Once this config is installed there are no further manual git steps:
+  #      cloning a repo is enough.
+  #
+  # Exemptions, so the guard is not daily friction: personal repos (remote
+  # owned by dwwhitlock on GitHub, or `git config hooks.protectedPushOk true`
+  # set locally) may push to main, and force pushes to
+  # refs/heads/dwightwhitlock/* need no opt-in. Force pushes to main always do.
+  #
+  # Overrides are environment variables on one command (ALLOW_PROTECTED_PUSH=1,
+  # ALLOW_FORCE_PUSH=1): hard to set by accident, visible in shell history.
+  #
+  # Scope: this catches accidents, human or agent. It is not a security
+  # boundary. Anything that runs a shell can set the variable, pass
+  # --no-verify, or override core.hooksPath. Enforcement belongs server-side in
+  # branch protection / rulesets (platform-github for the org).
+  #
+  # Known gap: a repo that sets its own core.hooksPath (husky, lefthook) hides
+  # these hooks for that repo. ~/code/status.sh flags such repos in its HOOKS
+  # column. Tests: git/hooks/test_pre_push.
+  hooksPath = ~/.config/git/hooks
 
 [user]
   email = 59847742+dwwhitlock@users.noreply.github.com
@@ -27,8 +79,10 @@
   br = branch 
   ci = commit
   st = status
-  p = push
   aa = add --all
+  # Explicit, lease-guarded force push. The bare `p = push` alias is gone on
+  # purpose: one keystroke to publish is how mistakes ship.
+  pushf = push --force-with-lease --force-if-includes
   reset-main = "!git checkout main && git reset --hard origin/main"
   cleanup-branches = "!git branch -vv | grep ': gone]' | awk '{print $1}' | xargs -r git branch -d"
 
