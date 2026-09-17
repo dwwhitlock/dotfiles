@@ -10,6 +10,11 @@
 #
 # The opt-ins are environment variables on purpose: they cannot be set by
 # accident, and they leave a trace in shell history.
+#
+# This hook exists explicitly so that LLM coding agents running git on this
+# machine cannot accidentally push to main or force-push. Agents run under the
+# same core.hooksPath as everything else and cannot opt in without a human
+# putting the variable on the command line.
 #   ALLOW_PROTECTED_PUSH=1 git push origin main
 #   ALLOW_FORCE_PUSH=1     git pushf
 

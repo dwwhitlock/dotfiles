@@ -19,6 +19,12 @@
   # tracked main, so `git push` from it wrote to main. That has happened more
   # than once; `current` makes the branch name the only thing that picks the
   # destination.
+  #
+  # These push settings, and the pre-push hook under core.hooksPath, exist
+  # explicitly so that LLM coding agents running git on this machine cannot
+  # accidentally push to main or force-push. Agents inherit this config and
+  # these hooks like any other process, and an agent working in a worktree
+  # branched from origin/main is exactly how the last incident happened.
   default = current
   autoSetupRemote = true
   # Make --force-with-lease also refuse when the remote moved since we last
@@ -33,6 +39,8 @@
 [core]
   # Global hooks. git/hooks/pre-push refuses pushes to main and force pushes
   # unless explicitly opted in, and chains to any repo-local hook afterwards.
+  # The opt-ins are environment variables a human sets on one command, so an
+  # LLM agent cannot satisfy them by constructing a different git invocation.
   hooksPath = ~/.config/git/hooks
 
 [user]
