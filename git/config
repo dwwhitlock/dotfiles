@@ -32,15 +32,21 @@
   useForceIfIncludes = true
 
 [branch]
-  # Do not inherit tracking from the start point. `git checkout -b x origin/main`
-  # and `git worktree add -b x origin/main` no longer make x track main.
-  autoSetupMerge = false
+  # Track only when the local and remote names match. `git checkout -b x
+  # origin/main` and `git worktree add -b x origin/main` no longer make x track
+  # main, but `git checkout x` from an existing origin/x still tracks it, so
+  # `git pull` on checked-out branches keeps working. (`false` broke that.)
+  autoSetupMerge = simple
 
 [core]
   # Global hooks. git/hooks/pre-push refuses pushes to main and force pushes
   # unless explicitly opted in, and chains to any repo-local hook afterwards.
   # The opt-ins are environment variables a human sets on one command, so an
   # LLM agent cannot satisfy them by constructing a different git invocation.
+  # Exemptions, so the guard does not become daily friction: personal repos
+  # (remote owned by dwwhitlock, or `hooks.protectedPushOk = true` set locally)
+  # may push to main, and force pushes to refs/heads/dwightwhitlock/* branches
+  # need no opt-in. Force pushes to main always do.
   hooksPath = ~/.config/git/hooks
 
 [user]
