@@ -1,5 +1,6 @@
 #!/usr/bin/env sh
 # Global pre-push guard, installed via core.hooksPath (see git/config).
+# Tests: git/hooks/test_pre_push (run it after any change here or in git/config).
 #
 # Refuses, in order:
 #   1. deleting a protected branch (main/master)     -> always

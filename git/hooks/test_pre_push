@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+# Behavioural tests for git/hooks/pre-push and the push settings in git/config.
+#
+# Runs against throwaway bare repositories in a temp dir, using the GLOBAL git
+# config as installed by setup/create_links, so it tests what your shell will
+# actually do. Nothing here touches a real remote.
+#
+#   git/hooks/test_pre_push          # run
+#   git/hooks/test_pre_push -v       # show git output for each scenario
+#
+# Exits non-zero if any scenario fails or if the installed config is not the
+# one this repo ships.
+set -u
+
+verbose=0; [ "${1:-}" = "-v" ] && verbose=1
+pass=0; fail=0
+S="$(mktemp -d)"
+trap 'rm -rf "$S"' EXIT
+export GIT_CONFIG_NOSYSTEM=1
+export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=test@example.com GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=test@example.com
+
+say() { printf '%s\n' "$*"; }
+t() {
+  local name="$1" want="$2"; shift 2
+  local got out
+  if out="$(timeout 20 "$@" 2>&1)"; then got=allow; else got=block; fi
+  if [ "$got" = "$want" ]; then pass=$((pass+1)); say "  ✓ $name ($got)"; else fail=$((fail+1)); say "  ✗ $name: wanted $want got $got"; fi
+  [ "$verbose" = 1 ] && [ -n "$out" ] && printf '%s\n' "$out" | sed 's/^/      /'
+  return 0
+}
+c() { git -c commit.gpgsign=false commit -q --allow-empty -m "$1"; }
+
+say "--- preconditions: installed global config matches this repo"
+here="$(cd "$(dirname "$0")/.." && pwd -P)"
+t "~/.gitconfig resolves into this repo" allow test "$(readlink -f ~/.gitconfig)" = "$(readlink -f "$here/config")"
+t "core.hooksPath resolves to this repo's hooks" allow test "$(cd "$(eval echo "$(git config --global core.hooksPath)")" && pwd -P)" = "$here/hooks"
+t "push.default is current" allow test "$(git config --global push.default)" = current
+t "branch.autoSetupMerge is simple" allow test "$(git config --global branch.autoSetupMerge)" = simple
+t "alias.p is gone" block git config --global alias.p
+t "hook is executable" allow test -x "$here/hooks/pre-push"
+
+cd "$S" && git init -q --bare remote.git && git clone -q remote.git work 2>/dev/null && cd work
+c init; ALLOW_PROTECTED_PUSH=1 timeout 20 git push -q origin main 2>/dev/null
+
+say "--- tracking"
+git checkout -q -b feat origin/main
+t "branch from origin/main gets no upstream" allow test -z "$(git config branch.feat.merge)"
+c one; git push -q origin 2>/dev/null; git checkout -q main; git branch -q -D feat; git fetch -q; git checkout -q feat 2>/dev/null
+t "checkout of remote-only branch does track" allow test "$(git config branch.feat.merge)" = refs/heads/feat
+
+say "--- push destination"
+c one2
+t "push from feat lands on feat, main untouched" allow sh -c 'git push -q origin && [ "$(git rev-parse origin/main)" = "$(git ls-remote origin main | cut -f1)" ]'
+
+say "--- protected branch, shared repo"
+git checkout -q main; c main2
+t "push to main blocked" block git push origin main
+t "push to main allowed with ALLOW_PROTECTED_PUSH=1" allow env ALLOW_PROTECTED_PUSH=1 git push origin main
+c main3
+t "explicit HEAD:main refspec blocked" block git push origin HEAD:main
+t "delete main refused even with both opt-ins" block env ALLOW_PROTECTED_PUSH=1 ALLOW_FORCE_PUSH=1 git push origin :main
+
+say "--- personal repo exemptions"
+mkdir -p "$S/github.com/dwwhitlock"; git init -q --bare "$S/github.com/dwwhitlock/mine.git"; git remote add mine "$S/github.com/dwwhitlock/mine.git"
+t "push to main allowed when remote owner is dwwhitlock" allow git push mine main
+c main4
+t "force to main in personal repo still needs opt-in" block sh -c 'git reset -q --hard HEAD~2 && git -c commit.gpgsign=false commit -q --allow-empty -m rw && git push --force mine main'
+git reset -q --hard origin/main
+t "hooks.protectedPushOk=true allows main in a shared repo" allow sh -c 'git config hooks.protectedPushOk true && git push origin main'
+git config --unset hooks.protectedPushOk; c main5
+t "knob unset blocks main again" block git push origin main
+
+say "--- force push"
+git checkout -q feat; git reset -q --hard HEAD~1; c rewritten
+t "force to unprefixed branch blocked" block git push --force origin feat
+t "pushf to unprefixed branch blocked" block git pushf origin feat
+t "force allowed with ALLOW_FORCE_PUSH=1" allow env ALLOW_FORCE_PUSH=1 git push --force origin feat
+c two
+t "fast-forward push still allowed" allow git push origin feat
+git checkout -q -b dwightwhitlock/mine origin/main; c own1; git push -q origin 2>/dev/null; git reset -q --hard HEAD~1; c own2
+t "pushf to dwightwhitlock/* allowed without opt-in" allow git pushf origin dwightwhitlock/mine
+t "bare --force to dwightwhitlock/* allowed" allow sh -c 'git reset -q --hard HEAD~1 && git -c commit.gpgsign=false commit -q --allow-empty -m own3 && git push --force origin dwightwhitlock/mine'
+
+say "--- chaining to repo-local hook"
+git checkout -q feat
+printf '#!/bin/sh\nread l ls r rs; echo "$r" > %s/chained.txt\nexit 0\n' "$S" > .git/hooks/pre-push; chmod +x .git/hooks/pre-push; c three
+t "repo-local pre-push runs and receives refs on stdin" allow sh -c "git push -q origin feat && grep -q refs/heads/feat '$S/chained.txt'"
+printf '#!/bin/sh\nexit 1\n' > .git/hooks/pre-push; c four
+t "repo-local hook failure still blocks" block git push origin feat
+rm -f .git/hooks/pre-push
+
+say "--- worktree"
+git worktree add -q "$S/wt" -b wtbranch origin/main 2>/dev/null; cd "$S/wt"
+t "worktree branch from origin/main has no upstream" allow test -z "$(git config branch.wtbranch.merge)"
+c wt1
+t "worktree push goes to same-named branch" allow sh -c 'git push -q origin && git ls-remote --heads origin | grep -q refs/heads/wtbranch'
+t "worktree push to main still blocked" block git push origin HEAD:main
+
+say
+say "passed=$pass failed=$fail"
+[ "$fail" -eq 0 ]
