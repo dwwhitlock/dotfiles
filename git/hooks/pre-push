@@ -1,0 +1,65 @@
+#!/usr/bin/env sh
+# Global pre-push guard, installed via core.hooksPath (see git/config).
+#
+# Refuses, in order:
+#   1. deleting a protected branch (main/master)     -> always
+#   2. pushing to a protected branch                 -> unless ALLOW_PROTECTED_PUSH=1
+#   3. a non-fast-forward (force) push to any branch -> unless ALLOW_FORCE_PUSH=1
+# then chains to the repository's own pre-push hook if it has one, replaying
+# the ref list on its stdin so hooks that parse refs still work.
+#
+# The opt-ins are environment variables on purpose: they cannot be set by
+# accident, and they leave a trace in shell history.
+#   ALLOW_PROTECTED_PUSH=1 git push origin main
+#   ALLOW_FORCE_PUSH=1     git pushf
+
+remote="$1"
+protected='^refs/heads/(main|master)$'
+zero=0000000000000000000000000000000000000000
+status=0
+
+refs="$(mktemp)"
+trap 'rm -f "$refs"' EXIT
+cat > "$refs"
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ -z "$remote_ref" ] && continue
+
+  if [ "$local_sha" = "$zero" ] && echo "$remote_ref" | grep -Eq "$protected"; then
+    echo "pre-push: refusing to delete protected branch $remote_ref on $remote" >&2
+    status=1
+    continue
+  fi
+
+  if echo "$remote_ref" | grep -Eq "$protected" && [ "${ALLOW_PROTECTED_PUSH:-0}" != "1" ]; then
+    echo "pre-push: refusing to push $local_ref -> $remote_ref on $remote." >&2
+    echo "          Open a pull request. One-time override: ALLOW_PROTECTED_PUSH=1 git push ..." >&2
+    status=1
+    continue
+  fi
+
+  if [ "$remote_sha" != "$zero" ] && [ "$local_sha" != "$zero" ]; then
+    if ! git merge-base --is-ancestor "$remote_sha" "$local_sha" 2>/dev/null; then
+      if [ "${ALLOW_FORCE_PUSH:-0}" != "1" ]; then
+        echo "pre-push: $remote_ref on $remote is not an ancestor of $local_ref (this is a force push)." >&2
+        echo "          One-time override: ALLOW_FORCE_PUSH=1 git pushf" >&2
+        status=1
+        continue
+      fi
+    fi
+  fi
+done < "$refs"
+
+[ "$status" -ne 0 ] && exit "$status"
+
+# Chain to the repo-local hook (pre-commit, husky, ...). core.hooksPath hides
+# .git/hooks from git, so it has to be invoked here or it never runs.
+# --git-common-dir, not --git-path hooks: the latter honours core.hooksPath and
+# would resolve to this very file, which then exec's itself forever. The common
+# dir is also correct inside a worktree, whose hooks live with the main repo.
+repo_hook="$(git rev-parse --git-common-dir)/hooks/pre-push"
+self="$(cd "$(dirname "$0")" && pwd -P)/$(basename "$0")"
+if [ -x "$repo_hook" ] && [ "$(cd "$(dirname "$repo_hook")" && pwd -P)/pre-push" != "$self" ]; then
+  exec "$repo_hook" "$@" < "$refs"
+fi
+exit 0

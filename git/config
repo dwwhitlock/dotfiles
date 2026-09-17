@@ -14,8 +14,26 @@
   prune = true
 
 [push]
-  default = upstream
+  # Push to the same-named branch on the remote, never to whatever the local
+  # branch happens to track. With `upstream`, a branch created from origin/main
+  # tracked main, so `git push` from it wrote to main. That has happened more
+  # than once; `current` makes the branch name the only thing that picks the
+  # destination.
+  default = current
   autoSetupRemote = true
+  # Make --force-with-lease also refuse when the remote moved since we last
+  # fetched it, closing the window a background fetch would otherwise open.
+  useForceIfIncludes = true
+
+[branch]
+  # Do not inherit tracking from the start point. `git checkout -b x origin/main`
+  # and `git worktree add -b x origin/main` no longer make x track main.
+  autoSetupMerge = false
+
+[core]
+  # Global hooks. git/hooks/pre-push refuses pushes to main and force pushes
+  # unless explicitly opted in, and chains to any repo-local hook afterwards.
+  hooksPath = ~/.config/git/hooks
 
 [user]
   email = 59847742+dwwhitlock@users.noreply.github.com
@@ -27,8 +45,10 @@
   br = branch 
   ci = commit
   st = status
-  p = push
   aa = add --all
+  # Explicit, lease-guarded force push. The bare `p = push` alias is gone on
+  # purpose: one keystroke to publish is how mistakes ship.
+  pushf = push --force-with-lease --force-if-includes
   reset-main = "!git checkout main && git reset --hard origin/main"
   cleanup-branches = "!git branch -vv | grep ': gone]' | awk '{print $1}' | xargs -r git branch -d"
 

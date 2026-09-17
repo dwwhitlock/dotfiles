@@ -5,6 +5,10 @@ PROJECT_ROOT=$(git rev-parse --show-toplevel)
 # git
 ln -sf $PROJECT_ROOT/git/config ~/.gitconfig
 ln -sf $PROJECT_ROOT/git/ignore ~/.gitignore
+# Global hooks directory (core.hooksPath in git/config). -n so re-running
+# replaces the link instead of creating a nested link inside the target.
+mkdir -p ~/.config/git
+ln -sfn $PROJECT_ROOT/git/hooks ~/.config/git/hooks
 
 # shell
 ln -sf $PROJECT_ROOT/.zshrc ~/.zshrc
