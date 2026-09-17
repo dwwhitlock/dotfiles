@@ -81,13 +81,58 @@ git checkout -q -b dwightwhitlock/mine origin/main; c own1; git push -q origin 2
 t "pushf to dwightwhitlock/* allowed without opt-in" allow git pushf origin dwightwhitlock/mine
 t "bare --force to dwightwhitlock/* allowed" allow sh -c 'git reset -q --hard HEAD~1 && git -c commit.gpgsign=false commit -q --allow-empty -m own3 && git push --force origin dwightwhitlock/mine'
 
-say "--- chaining to repo-local hook"
+say "--- chaining to repo-local hooks"
 git checkout -q feat
 printf '#!/bin/sh\nread l ls r rs; echo "$r" > %s/chained.txt\nexit 0\n' "$S" > .git/hooks/pre-push; chmod +x .git/hooks/pre-push; c three
 t "repo-local pre-push runs and receives refs on stdin" allow sh -c "git push -q origin feat && grep -q refs/heads/feat '$S/chained.txt'"
 printf '#!/bin/sh\nexit 1\n' > .git/hooks/pre-push; c four
 t "repo-local hook failure still blocks" block git push origin feat
 rm -f .git/hooks/pre-push
+printf '#!/bin/sh\nexit 1\n' > .git/hooks/pre-commit; chmod +x .git/hooks/pre-commit
+t "repo-local pre-commit hook is NOT bypassed (regression)" block git -c commit.gpgsign=false commit -q --allow-empty -m blocked
+printf '#!/bin/sh\necho "$2" > %s/msg-hook.txt\nexit 0\n' "$S" > .git/hooks/prepare-commit-msg; chmod +x .git/hooks/prepare-commit-msg
+rm -f .git/hooks/pre-commit; c five
+t "repo-local prepare-commit-msg runs with its arguments" allow grep -q message "$S/msg-hook.txt"
+rm -f .git/hooks/prepare-commit-msg
+t "commit with no repo-local hooks still works" allow git -c commit.gpgsign=false commit -q --allow-empty -m plain
+
+say "--- pre-commit framework without \`pre-commit install\`"
+if command -v pre-commit >/dev/null 2>&1; then
+  cat > .pre-commit-config.yaml <<'YAML'
+repos:
+  - repo: local
+    hooks:
+      - id: always-fail
+        name: always-fail
+        entry: sh -c 'exit 1'
+        language: system
+        pass_filenames: false
+        always_run: true
+YAML
+  git add .pre-commit-config.yaml
+  t "config with no stages: blocks commit (pre-commit stage runs)" block git -c commit.gpgsign=false commit -q -m cfg
+  t "config with no stages: push NOT affected (matches default install)" allow git push origin feat
+  cat > .pre-commit-config.yaml <<'YAML'
+repos:
+  - repo: local
+    hooks:
+      - id: push-fail
+        name: push-fail
+        entry: sh -c 'exit 1'
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+YAML
+  git add .pre-commit-config.yaml
+  t "config naming pre-push stage: commit allowed" allow git -c commit.gpgsign=false commit -q -m cfg2
+  t "config naming pre-push stage: push blocked by framework" block git push origin feat
+  GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0= pre-commit install -t pre-push >/dev/null 2>&1
+  t "legacy installed framework stub is not run twice (still exactly blocked)" block git push origin feat
+  rm -f .git/hooks/pre-push .pre-commit-config.yaml; git rm -q --cached .pre-commit-config.yaml 2>/dev/null; c cleanup
+else
+  say "  (pre-commit not on PATH; framework scenarios skipped)"
+fi
 
 say "--- worktree"
 git worktree add -q "$S/wt" -b wtbranch origin/main 2>/dev/null; cd "$S/wt"

@@ -1,0 +1,3 @@
+#!/usr/bin/env sh
+# Delegates to the repo-local hook and/or pre-commit framework; see _chain.
+exec "$(dirname "$0")/_chain" pre-commit "$@"

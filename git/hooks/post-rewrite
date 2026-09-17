@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+# Delegates to the repo-local hook and/or pre-commit framework; see _chain.
+# post-rewrite receives rewritten sha pairs on stdin, so buffer and replay it.
+refs="$(mktemp)"; trap 'rm -f "$refs"' EXIT; cat > "$refs"
+exec "$(dirname "$0")/_chain" post-rewrite "$@" < "$refs"

@@ -9,8 +9,11 @@ cd "${CODE_DIR:-$HOME/code}"
 do_fetch=false
 [ "${1:-}" = "--fetch" ] && do_fetch=true
 
-printf "%-45s %-10s %-10s %s\n" "REPO" "BRANCH" "DIRTY" "AHEAD/BEHIND main"
-printf "%-45s %-10s %-10s %s\n" "----" "------" "-----" "-----------------"
+# HOOKS: "ok" when the repo inherits the global core.hooksPath (so the push
+# guard in dotfiles/git/hooks applies), or "LOCAL <path>" when the repo sets its
+# own (husky, lefthook), which silently disables the global guard there.
+printf "%-45s %-10s %-10s %-18s %s\n" "REPO" "BRANCH" "DIRTY" "AHEAD/BEHIND main" "HOOKS"
+printf "%-45s %-10s %-10s %-18s %s\n" "----" "------" "-----" "-----------------" "-----"
 
 find . -mindepth 1 -maxdepth 3 -name ".git" -type d 2>/dev/null | sort | while read -r gitdir; do
   repo_dir="$(dirname "$gitdir")"
@@ -39,5 +42,9 @@ find . -mindepth 1 -maxdepth 3 -name ".git" -type d 2>/dev/null | sort | while r
     ab="behind by ${behind:-0}"
   fi
 
-  printf "%-45s %-10s %-10s %s\n" "$repo" "${branch:-?}" "$dirty" "$ab"
+  hooks="ok"
+  local_hp=$(git -C "$repo_dir" config --local --get core.hooksPath 2>/dev/null)
+  [ -n "$local_hp" ] && hooks="LOCAL $local_hp"
+
+  printf "%-45s %-10s %-10s %-18s %s\n" "$repo" "${branch:-?}" "$dirty" "$ab" "$hooks"
 done

@@ -9,8 +9,8 @@
 #   3. a non-fast-forward (force) push               -> to a protected branch: unless ALLOW_FORCE_PUSH=1
 #                                                       to refs/heads/dwightwhitlock/*: allowed
 #                                                       elsewhere: unless ALLOW_FORCE_PUSH=1
-# then chains to the repository's own pre-push hook if it has one, replaying
-# the ref list on its stdin so hooks that parse refs still work.
+# then hands off to _chain, which runs the pre-commit framework and/or the
+# repository's own pre-push hook with the ref list replayed on stdin.
 #
 # "Personal" means the push URL is owned by dwwhitlock on GitHub, or the repo
 # has `git config hooks.protectedPushOk true` set locally. Direct pushes to
@@ -80,14 +80,8 @@ done < "$refs"
 
 [ "$status" -ne 0 ] && exit "$status"
 
-# Chain to the repo-local hook (pre-commit, husky, ...). core.hooksPath hides
-# .git/hooks from git, so it has to be invoked here or it never runs.
-# --git-common-dir, not --git-path hooks: the latter honours core.hooksPath and
-# would resolve to this very file, which then exec's itself forever. The common
-# dir is also correct inside a worktree, whose hooks live with the main repo.
-repo_hook="$(git rev-parse --git-common-dir)/hooks/pre-push"
-self="$(cd "$(dirname "$0")" && pwd -P)/$(basename "$0")"
-if [ -x "$repo_hook" ] && [ "$(cd "$(dirname "$repo_hook")" && pwd -P)/pre-push" != "$self" ]; then
-  exec "$repo_hook" "$@" < "$refs"
-fi
-exit 0
+# Hand off to the shared dispatcher: pre-commit framework (if the repo has a
+# config naming the pre-push stage) and/or the repo-local .git/hooks/pre-push,
+# with the ref list replayed on stdin. See _chain for why --git-path is not
+# used to find the repo-local hook.
+exec "$(dirname "$0")/_chain" pre-push "$@" < "$refs"

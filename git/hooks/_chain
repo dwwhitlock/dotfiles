@@ -1,0 +1,65 @@
+#!/usr/bin/env sh
+# Shared dispatcher behind every event-named hook in this directory.
+#
+# core.hooksPath makes git ignore each repository's own .git/hooks, so without
+# this nothing a repo set up for itself would ever run. For each hook event:
+#
+#   1. If the repo has .pre-commit-config.yaml and `pre-commit` is on PATH, run
+#      the framework directly via `pre-commit hook-impl`, exactly as the script
+#      `pre-commit install` would have written. No install step is needed in
+#      any repo, ever. `pre-commit install` refuses under core.hooksPath anyway.
+#      To match the framework's own default (install with no flags = the
+#      pre-commit stage only), other stages run only when the config names
+#      that stage explicitly, so a repo's hooks do not start firing at push or
+#      commit-msg time just because we can now invoke those stages.
+#   2. If the repo has an executable .git/hooks/<event> (husky, lefthook, a
+#      hand-written hook, or a legacy `pre-commit install`), run it. Skipped
+#      when it is itself a pre-commit framework stub and step 1 already ran,
+#      so the framework never runs twice.
+#
+# Usage from a wrapper:  exec "$(dirname "$0")/_chain" <event> "$@"
+# Events that receive data on stdin (pre-push, post-rewrite) must have it
+# replayed by the caller; see pre-push, which passes "< $refs".
+
+event="$1"; shift
+
+# Not inside a work tree (bare repo, or invoked oddly): nothing to chain to.
+root="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+common="$(git rev-parse --git-common-dir 2>/dev/null)" || exit 0
+case "$common" in /*) ;; *) common="$root/$common" ;; esac
+
+ran_framework=0
+cfg="$root/.pre-commit-config.yaml"
+if [ -f "$cfg" ] && command -v pre-commit >/dev/null 2>&1; then
+  run=0
+  case "$event" in
+    pre-commit) run=1 ;;
+    *)
+      # Legacy stage spellings still appear in older configs.
+      case "$event" in
+        pre-push)         alt="push" ;;
+        pre-merge-commit) alt="merge-commit" ;;
+        *)                alt="$event" ;;
+      esac
+      if grep -Eq "(^|[^a-z_])(stages|default_stages)[[:space:]]*:" "$cfg" \
+        && grep -Eq "(^|[^a-z-])($event|$alt)([^a-z-]|$)" "$cfg"; then
+        run=1
+      fi
+      ;;
+  esac
+  if [ "$run" = 1 ]; then
+    ran_framework=1
+    pre-commit hook-impl --config "$cfg" --hook-type "$event" --hook-dir "$common/hooks" --skip-on-missing-config -- "$@"
+    rc=$?
+    [ "$rc" -ne 0 ] && exit "$rc"
+  fi
+fi
+
+local_hook="$common/hooks/$event"
+if [ -x "$local_hook" ]; then
+  if [ "$ran_framework" = 1 ] && grep -q "hook-impl" "$local_hook" 2>/dev/null; then
+    exit 0
+  fi
+  exec "$local_hook" "$@"
+fi
+exit 0
