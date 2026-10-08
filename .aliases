@@ -1,9 +1,3 @@
-
-# only use for unicode text
-alias copy="xsel --clipboard <"
-alias paste="xsel --clipboard >"
-
-
 # terraform
 alias tf='terraform'
 alias tg='terragrunt'
@@ -23,24 +17,13 @@ alias de="direnv edit"
 alias pcr="pre-commit run"
 alias pcra="pre-commit run --all-files"
 
-alias asl_session="aws sso login --sso-session my-sso"
-alias asl="aws sso login"
-alias assh="aws ssm start-session --target"
-
-
 alias senv="env | sort"
-
-alias vault_login="vault login -method oidc role=data-platform"
-alias cloud_login="asl && vault_login"
 
 
 #git
 alias pull_and_merge='git checkout main && git pull && git checkout - && git merge main'
 alias pull_and_rebase='git checkout main && git pull && git checkout - && git rebase main'
 
-alias pc="pycharm"
-alias aic="aicommits"
-
 
 # claude
-alias claude_danger='claude --dangerously-skip-permissions'
+alias claude_auto='claude --permission-mode auto'

@@ -20,7 +20,7 @@
 [user]
   email = 59847742+dwwhitlock@users.noreply.github.com
   name = Dwight Whitlock
-	signingkey = C8682424579A5DC5
+  signingkey = C8682424579A5DC5
 
 [alias]
   co = checkout

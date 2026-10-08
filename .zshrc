@@ -19,48 +19,29 @@ else
 fi
 
 
-# # Which plugins would you like to load?
-# # Standard plugins can be found in $ZSH/plugins/
-# # Custom plugins may be added to $ZSH_CUSTOM/plugins/
-# # Example format: plugins=(rails git textmate ruby lighthouse)
-# # Add wisely, as too many plugins slow down shell startup.
-# plugins=(
-#   git 
-#   aws
-#   docker
-#   command_execution_time
-#   direnv
-#   disk_usage
-#   ram
-#   kube_context
-#   vcs
-#   zsh-syntax-highlighting
-#   zsh-autosuggestions
-# )
 
 
 export LANG=en_US.UTF-8
 export EDITOR=nvim
 
 
+## pyenv
 export PYENV_ROOT="$HOME/.pyenv"
 export PATH="$PYENV_ROOT/shims:$PYENV_ROOT/bin:$PATH"
 export PYENV_VERSION=3.13
+
+## direnv
 eval "$(direnv hook zsh)"
 
 
-
-export DOTFILES_ROOT="$HOME/code/personal/dotfiles"
-export CN_DOTFILES_ROOT="$HOME/code/personal/cn-dotfiles"
-
+## custom dotfiles
+export DOTFILES_ROOT="$HOME/code/dotfiles"
+export CN_DOTFILES_ROOT="$HOME/code/cn-dotfiles"
 export PATH="$DOTFILES_ROOT/bin:$PATH"
 export PATH="$CN_DOTFILES_ROOT/bin:$PATH"
 export PATH="$HOME/.local/bin:$PATH"
-
-# should not be version controlled
-source $HOME/.secrets
 source $HOME/.aliases
-source $CN_DOTFILES_ROOT/.cn_aliases
+source $CN_DOTFILES_ROOT/.cn_shellrc
 
 
 
