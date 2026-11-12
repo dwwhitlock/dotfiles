@@ -14,8 +14,18 @@
   prune = true
 
 [push]
-  default = upstream
+  # Push to the same-named branch on the remote, never to whatever the local
+  # branch tracks. Under `upstream`, a branch created from origin/main tracked
+  # main, so a bare `git push` from it wrote to main.
+  default = current
   autoSetupRemote = true
+  # --force-with-lease also refuses if the remote moved since our last fetch.
+  useForceIfIncludes = true
+
+[branch]
+  # Track only when local and remote names match, so `checkout -b x origin/main`
+  # no longer makes x track main.
+  autoSetupMerge = simple
 
 [user]
   email = 59847742+dwwhitlock@users.noreply.github.com
@@ -27,8 +37,8 @@
   br = branch 
   ci = commit
   st = status
-  p = push
   aa = add --all
+  pushf = push --force-with-lease --force-if-includes
   reset-main = "!git checkout main && git reset --hard origin/main"
   cleanup-branches = "!git branch -vv | grep ': gone]' | awk '{print $1}' | xargs -r git branch -d"
 

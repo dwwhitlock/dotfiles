@@ -10,13 +10,19 @@ HISTSIZE=1000
 SAVEHIST=1000
 HISTFILE=~/.zsh_history
 
-# Use modern completion system (skip full rebuild unless the cache is >24h old)
+# Drop duplicate PATH/fpath entries automatically
+typeset -U path PATH fpath
+
+# Completion: full rebuild at most once a day, otherwise load the cached dump
 autoload -Uz compinit
-if [[ -n ${ZDOTDIR:-$HOME}/.zcompdump(#qN.mh+24) ]]; then
-  compinit
+_zcompdump=${ZDOTDIR:-$HOME}/.zcompdump
+_stale=($_zcompdump(N.mh+24))   # a plain glob here doesn't need extendedglob
+if (( $#_stale )) || [[ ! -e $_zcompdump ]]; then
+compinit && touch $_zcompdump  # touch so the 24h timer resets
 else
-  compinit -C
+compinit -C
 fi
+unset _zcompdump _stale
 
 
 
@@ -28,7 +34,6 @@ export EDITOR=nvim
 ## pyenv
 export PYENV_ROOT="$HOME/.pyenv"
 export PATH="$PYENV_ROOT/shims:$PYENV_ROOT/bin:$PATH"
-export PYENV_VERSION=3.13
 
 ## direnv
 eval "$(direnv hook zsh)"
@@ -40,7 +45,7 @@ export WORK_DOTFILES_ROOT="$HOME/code/work-dotfiles"
 export PATH="$DOTFILES_ROOT/bin:$PATH"
 export PATH="$WORK_DOTFILES_ROOT/bin:$PATH"
 export PATH="$HOME/.local/bin:$PATH"
-source $HOME/.aliases
+# also loads ~/.work_shellrc.local
 source $WORK_DOTFILES_ROOT/.work_shellrc
 
 
@@ -54,7 +59,7 @@ export JAVA_HOME="/opt/homebrew/opt/openjdk@17"
 export PATH="$JAVA_HOME/bin:$PATH"
 
 # bun completions
-[ -s "/Users/dwightwhitlock/.bun/_bun" ] && source "/Users/dwightwhitlock/.bun/_bun"
+source ~/.bun/_bun
 
 # bun
 export BUN_INSTALL="$HOME/.bun"
@@ -62,6 +67,5 @@ export PATH="$BUN_INSTALL/bin:$PATH"
 
 # fpath+=~/.zfunc; autoload -Uz compinit; compinit
 
-# zstyle ':completion:*' menu select
 eval "$(starship init zsh)"
 eval "$(zoxide init zsh)"
