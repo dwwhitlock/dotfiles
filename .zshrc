@@ -7,7 +7,6 @@
 export LANG=en_US.UTF-8
 export EDITOR=nvim
 export DOTFILES_ROOT="$HOME/code/dotfiles"
-export WORK_DOTFILES_ROOT="$HOME/code/work-dotfiles"   # private employer repo; optional
 export PYENV_ROOT="$HOME/.pyenv"
 
 # Homebrew: Apple silicon or Linux (brew shellenv may already have set this)
@@ -27,7 +26,6 @@ path=(
   $JAVA_HOME/bin
   $HOME/.rd/bin               # Rancher Desktop (its PATH Configuration is set to Manual)
   $HOME/.local/bin            # Claude Code
-  $WORK_DOTFILES_ROOT/bin
   $DOTFILES_ROOT/bin
   $PYENV_ROOT/shims
   $HOMEBREW_PREFIX/bin
@@ -79,9 +77,8 @@ bindkey '^X^E' edit-command-line
 # Ctrl-W stops at / so it deletes one path segment
 WORDCHARS=${WORDCHARS//\/}
 
-# ── Aliases and private config ───────────────────────────────────────────────
+# ── Aliases ──────────────────────────────────────────────────────────────────
 source $DOTFILES_ROOT/.aliases
-[[ -f $WORK_DOTFILES_ROOT/.work_shellrc ]] && source $WORK_DOTFILES_ROOT/.work_shellrc  # also loads ~/.work_shellrc.local
 
 # ── Tool hooks ───────────────────────────────────────────────────────────────
 # Each tool's init script is cached in ~/.cache/zsh-init instead of being
