@@ -8,6 +8,8 @@ ln -sf $PROJECT_ROOT/git/ignore ~/.gitignore
 
 # shell
 ln -sf $PROJECT_ROOT/.zshrc ~/.zshrc
-ln -sf $PROJECT_ROOT/.aliases ~/.aliases
-ln -sf $PROJECT_ROOT/.secrets ~/.secrets
+
+# prompt
+mkdir -p ~/.config
+ln -sf $PROJECT_ROOT/starship/starship.toml ~/.config/starship.toml
 

@@ -1,11 +1,13 @@
 #!/usr/bin/env sh
-
-
-# ai commit
-aicommits config set type=conventional
-aicommits config set model=gpt-4o-mini
-aicommits config set OPENAI_KEY=$OPENAI_KEY
+# Safe to re-run: each step checks before changing anything.
 
 # gpg
-echo "pinentry-program /opt/homebrew/bin/pinentry-mac" >> ~/.gnupg/gpg-agent.conf
-gpgconf --kill gpg-agent
+GPG_AGENT_CONF="$HOME/.gnupg/gpg-agent.conf"
+PINENTRY_LINE="pinentry-program /opt/homebrew/bin/pinentry-mac"
+
+mkdir -p "$HOME/.gnupg"
+chmod 700 "$HOME/.gnupg"
+if ! grep -qxF "$PINENTRY_LINE" "$GPG_AGENT_CONF" 2>/dev/null; then
+  echo "$PINENTRY_LINE" >> "$GPG_AGENT_CONF"
+  gpgconf --kill gpg-agent
+fi
