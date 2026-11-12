@@ -10,14 +10,32 @@ Hotkeys and shortcuts for the zsh setup in [`.zshrc`](.zshrc).
 **Notation:** `^X` = Ctrl-X. `M-x` = Option-x. Pressing `Esc` and then the key
 also works.
 
-**iTerm2:** the `M-` keys need **Left Option key** set to **Esc+**. Without it,
-Option types characters like `ç` and `≥`. The repo's iTerm2 profile
-(`iterm2/dotfiles.json`, installed by `setup/iterm2`) sets this, along with the
-Nerd Font starship's icons need. Editor terminals (VS Code, Zed, PyCharm) need
-the same setting; see "Editor terminals" in `README.md`.
-
 The line editor is in **emacs mode** (`bindkey -e`), so these are emacs-style
 keys, not vi.
+
+## Terminals
+
+The shortcuts below are the same in every terminal, as long as the terminal
+passes the keys through to the shell. Two settings make that work: **Option
+sends Esc+** (otherwise Option types characters like `ç` and `≥`, and none of
+the `M-` keys work), and a **Nerd Font** for starship's icons.
+
+| Terminal | Option as Esc+ and font set by | Known catch |
+| --- | --- | --- |
+| iTerm2 | `setup/iterm2` (`iterm2/dotfiles.json`) | Only **Left** Option sends Esc+; Right Option still types special characters |
+| VS Code | `setup/editors` (`editors/vscode.json`) | None known |
+| Zed | `setup/editors` (`editors/zed.json`) | None known |
+| PyCharm | `setup/editors` (`editors/pycharm.json`) | **Override IDE shortcuts** (Settings → Tools → Terminal) must stay on, or PyCharm takes keys like `^R` and `^T` |
+
+**Quick test in a new terminal:** press `M-.` (inserts the previous command's
+last argument), `^R` (fzf history search) and `^T` (fzf file picker). If one
+does nothing, or types a symbol:
+
+1. Run `setup/editors` (or check the iTerm2 profile is the default) to confirm
+   the settings are applied.
+2. If they are, the terminal is keeping that key for itself. Look for the
+   shortcut in that app's keymap and unbind it, or press `Esc` then the key
+   instead of `M-`.
 
 ## Search and history
 

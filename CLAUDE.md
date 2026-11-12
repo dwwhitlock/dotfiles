@@ -73,7 +73,7 @@ Using my normal tools day to day must never change files in this repo. Every tra
 - **`Brewfile` ↔ everything else:** when a file starts relying on a new Homebrew tool, add it to `Brewfile`, along with its `tap` if it needs one. Don't add install lists anywhere else; `setup/brew_install` just runs `brew bundle`.
 - **`setup/create_links`:** when you add a new top-level dotfile, add its symlink here.
 - **`iterm2/dotfiles.json`:** keep it minimal. Add a setting only when something in the repo depends on it (as `HOTKEYS.md` depends on Option sending Esc+), and record why in the README's iTerm2 table. Never copy settings across from an existing iTerm2 install. The `Guid` must match `PROFILE_GUID` in `setup/iterm2`.
-- **`editors/`:** like the iTerm2 profile, keep it minimal. Add a setting only when something in the repo depends on it, and list it in the README's "Editor terminals" table. Editors keep owning their settings files: never copy a whole editor settings file into the repo or symlink one. Change editors' files only through `setup/editors`, which touches just the keys in `editors/`.
+- **`editors/`:** like the iTerm2 profile, keep it minimal. Add a setting only when something in the repo depends on it, and list it in the README's "Editor terminals" table. When adding an editor or terminal, also add a row to the "Terminals" table in `HOTKEYS.md`. Editors keep owning their settings files: never copy a whole editor settings file into the repo or symlink one. Change editors' files only through `setup/editors`, which touches just the keys in `editors/`.
 - **`README.md` setup steps:** when a setup script is added or changes, or a new manual step appears, update the list.
 
 ## Notes
