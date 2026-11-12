@@ -27,7 +27,7 @@ Steps marked **manual** can't be scripted.
 
 | Setting | Why |
 | --- | --- |
-| Left Option key → Esc+ | Makes the `M-` (Option) shortcuts in `HOTKEYS.md` work |
+| Left Option key → Esc+ | Makes the `⌥` (Option) shortcuts in `HOTKEYS.md` work |
 | Font → MesloLGS NF 16 | starship's prompt icons need a Nerd Font (`font-meslo-for-powerlevel10k` in the `Brewfile`) |
 
 `setup/iterm2` symlinks the profile into `~/Library/Application Support/iTerm2/DynamicProfiles/` and makes it the default profile.
@@ -46,7 +46,7 @@ To change the profile, edit the JSON. iTerm2 reloads it live. Changes made in th
 
 ## Editor terminals
 
-The terminals built into editors need the same two settings as iTerm2: **Option sends Esc+**, so the `M-` shortcuts in `HOTKEYS.md` work, and **a Nerd Font**, so starship's icons show.
+The terminals built into editors need the same two settings as iTerm2: **Option sends Esc+**, so the `⌥` (Option) shortcuts in `HOTKEYS.md` work, and **a Nerd Font**, so starship's icons show.
 
 ### Automated: `setup/editors`
 
@@ -69,7 +69,7 @@ The editors keep owning their settings files, so changing settings in an editor'
 
 ### Manual
 
-- **PyCharm:** keep **Override IDE shortcuts** on (Settings → Tools → Terminal) so keys like `^R` and `^T` reach the shell. It's on by default.
+- **PyCharm:** keep **Override IDE shortcuts** on (Settings → Tools → Terminal) so keys like `⌃R` and `⌃T` reach the shell. It's on by default.
 
 ## Tearing down to test a full rebuild
 

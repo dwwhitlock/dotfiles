@@ -69,7 +69,7 @@ Using my normal tools day to day must never change files in this repo. Every tra
 
 ## Keep these in sync
 
-- **`HOTKEYS.md` ↔ `.zshrc`:** when you change a `bindkey`, `setopt`, plugin, or the fzf/zoxide setup, update `HOTKEYS.md` in the same commit.
+- **`HOTKEYS.md` ↔ `.zshrc`:** when you change a `bindkey`, `setopt`, plugin, or the fzf/zoxide setup, update `HOTKEYS.md` in the same commit. Write keys with Mac symbols (`⌃R`, `⌥B`, `⌘`), not `^R` or `M-b`: readers use Mac keyboards, or PC keyboards remapped to the Mac layout (Alt is ⌘). Keep `^X` only inside literal code such as `bindkey '^R'`.
 - **`Brewfile` ↔ everything else:** when a file starts relying on a new Homebrew tool, add it to `Brewfile`, along with its `tap` if it needs one. Don't add install lists anywhere else; `setup/brew_install` just runs `brew bundle`.
 - **`setup/create_links`:** when you add a new top-level dotfile, add its symlink here.
 - **`iterm2/dotfiles.json`:** keep it minimal. Add a setting only when something in the repo depends on it (as `HOTKEYS.md` depends on Option sending Esc+), and record why in the README's iTerm2 table. Never copy settings across from an existing iTerm2 install. The `Guid` must match `PROFILE_GUID` in `setup/iterm2`.
