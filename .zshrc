@@ -28,7 +28,6 @@ export EDITOR=nvim
 ## pyenv
 export PYENV_ROOT="$HOME/.pyenv"
 export PATH="$PYENV_ROOT/shims:$PYENV_ROOT/bin:$PATH"
-export PYENV_VERSION=3.13
 
 ## direnv
 eval "$(direnv hook zsh)"
@@ -40,7 +39,7 @@ export CN_DOTFILES_ROOT="$HOME/code/cn-dotfiles"
 export PATH="$DOTFILES_ROOT/bin:$PATH"
 export PATH="$CN_DOTFILES_ROOT/bin:$PATH"
 export PATH="$HOME/.local/bin:$PATH"
-source $HOME/.aliases
+# also loads ~/.cn_shellrc.local
 source $CN_DOTFILES_ROOT/.cn_shellrc
 
 
@@ -65,3 +64,9 @@ export PATH="$BUN_INSTALL/bin:$PATH"
 # zstyle ':completion:*' menu select
 eval "$(starship init zsh)"
 eval "$(zoxide init zsh)"
+
+# >>> cn-workstation >>>
+source "/Users/dwightwhitlock/code/platform-workstation/shellenv.sh"
+# <<< cn-workstation <<<
+fpath+=/opt/homebrew/share/zsh/site-functions
+autoload -Uz compinit && compinit
