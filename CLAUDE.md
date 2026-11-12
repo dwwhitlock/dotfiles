@@ -9,7 +9,7 @@ Everything committed here is visible to anyone on the internet. It must **never*
 - **Secrets:** API keys, tokens, passwords, private keys, credentials, or anything read from `~/.aws`, `~/.ssh`, vault, `.netrc`, etc.
 - **Anything confidential about my employer:** internal hostnames, URLs or IPs, account or workspace IDs, internal repo, project or service names, SSO session names, vault roles, team or customer names, or details of internal infrastructure.
 
-Employer-specific configuration lives in a separate private repo (`work-dotfiles`). `.zshrc` sources it by path, so this repo never needs its contents. Secrets are kept only in the macOS Keychain and read at runtime. Never add a plain-text secrets file, an `export TOKEN=...` line, or a hard-coded value, not even a gitignored one.
+Employer-specific configuration lives in a separate private repo, loaded from the unmanaged `~/.zprofile`. Nothing in this repo names that repo or sources it, so this repo never needs its contents. Don't add a reference to it back into `.zshrc`. Secrets are kept only in the macOS Keychain and read at runtime. Never add a plain-text secrets file, an `export TOKEN=...` line, or a hard-coded value, not even a gitignored one.
 
 Before committing, check the diff for anything above. When writing examples (docs, comments, test values), use generic placeholders like `my-repo` or `example.com`, never real internal names. If a change would need employer-specific detail to work, stop and ask rather than committing it.
 
@@ -65,7 +65,7 @@ Using my normal tools day to day must never change files in this repo. Every tra
 - **Don't track a file that a tool writes back to.** That includes settings files edited through an app's UI, caches, history and state. Track a read-only layer instead (e.g. the iTerm2 Dynamic Profile, never iTerm2's main preferences file).
 - **If a tool owns a setting** (e.g. Claude Code's `/terminal-setup` writes an iTerm2 key mapping), let the tool manage it, and document running it as a manual step in `README.md` instead of copying its output into the repo.
 - **Watch for tools that edit symlinked files.** Installers that append to `~/.zshrc` and `git config --global` (which writes into `git/config`) do this. Undo or relocate such edits rather than committing them, and prefer configuring the tool so it stops making them.
-- **`~/.zprofile` is deliberately unmanaged.** It's where installers append their own lines (Homebrew's `brew shellenv`, JetBrains Toolbox, etc.), so those never touch the repo. Nothing in `.zshrc` depends on it. Don't add it to the repo or symlink it.
+- **`~/.zprofile` is deliberately unmanaged.** It's where installers append their own lines (Homebrew's `brew shellenv`, JetBrains Toolbox, etc.), so those never touch the repo. It also loads the private employer config (see above). Nothing in `.zshrc` depends on it. Don't add it to the repo or symlink it.
 
 ## Keep these in sync
 

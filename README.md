@@ -83,7 +83,7 @@ These are hard or impossible to recreate:
 
 - **GPG private key:** `gpg --export-secret-keys --armor C8682424579A5DC5 > key.asc`. Store it somewhere safe outside `~`. **Never delete `~/.gnupg` without this.**
 - **Shell history:** `~/.zsh_history`.
-- **Anything you customised by hand that the repo doesn't track,** e.g. `~/.work_shellrc.local` (from the private employer repo) and `~/.claude` (Claude Code settings and memory).
+- **Anything you customised by hand that the repo doesn't track,** e.g. `~/.zprofile` (it loads the private employer config) and `~/.claude` (Claude Code settings and memory).
 
 ### What setup creates, and how to remove it
 
