@@ -16,7 +16,8 @@ Steps marked **manual** can't be scripted.
 8. **Manual: install Claude Code** with Anthropic's native installer (see <https://claude.com/claude-code>). It's one of only two tools not installed through brew; see `CLAUDE.md`.
 9. **Manual: stop Rancher Desktop editing `.zshrc`.** On first launch, Rancher Desktop adds a "MANAGED BY RANCHER DESKTOP" block to `~/.zshrc` (which is this repo's file). In Rancher Desktop → Preferences → Application → Environment, set **PATH Configuration** to **Manual**, then delete the block it added. `.zshrc` already puts `$HOME/.rd/bin` on `PATH` itself.
 10. **Set up iTerm2.** See the next section.
-11. Open a new terminal.
+11. **Editor terminals:** `setup/editors --apply` (quit PyCharm first). See "Editor terminals" below.
+12. Open a new terminal.
 
 ## iTerm2
 
@@ -42,6 +43,33 @@ To change the profile, edit the JSON. iTerm2 reloads it live. Changes made in th
 - **Shell integration (optional).** Install it from the iTerm2 menu → Install Shell Integration. It isn't in the repo because its installer is a `curl | bash` script.
 - **Shift+Enter for Claude Code.** Run `/terminal-setup` inside Claude Code once. It adds a global iTerm2 key mapping so Shift+Enter inserts a newline in Claude Code's prompt. The repo leaves this to Claude Code because the tool owns that setting (see "No diffs from normal use" in `CLAUDE.md`).
 - **Font already installed by hand?** If `MesloLGS NF *.ttf` files are already in `~/Library/Fonts`, `brew bundle` will refuse to overwrite them. Delete those four files, then re-run `setup/brew_install`.
+
+## Editor terminals
+
+The terminals built into editors need the same two settings as iTerm2: **Option sends Esc+**, so the `M-` shortcuts in `HOTKEYS.md` work, and **a Nerd Font**, so starship's icons show.
+
+### Automated: `setup/editors`
+
+The desired settings live in `editors/`, one file per editor, in that editor's own format:
+
+| File | Applied to | Settings |
+| --- | --- | --- |
+| `editors/vscode.json` | VS Code user `settings.json` | Option as Meta, terminal font |
+| `editors/zed.json` | `~/.config/zed/settings.json` | Option as Meta, terminal font, editor font fallback (so Nerd Font icons in files like `starship/starship.toml` display instead of `?`) |
+| `editors/pycharm.json` | `options/terminal.xml` and `options/terminal-font.xml` in the newest PyCharm config folder | Option as Meta, terminal font |
+
+```sh
+setup/editors           # report what differs; writes nothing
+setup/editors --apply   # fix only those keys
+```
+
+The editors keep owning their settings files, so changing settings in an editor's UI never creates a repo diff. The script changes only the keys listed in `editors/`. Everything else in the file, including your comments, stays as it is. Before writing, it saves a backup to `~/.cache/dotfiles/editor-backups/`. It skips editors that aren't installed.
+
+**Quit PyCharm before `--apply`.** PyCharm overwrites its settings files when it exits. The script refuses to edit them while PyCharm is running, or when it can't tell. VS Code and Zed pick up the changes live.
+
+### Manual
+
+- **PyCharm:** keep **Override IDE shortcuts** on (Settings → Tools → Terminal) so keys like `^R` and `^T` reach the shell. It's on by default.
 
 ## Tearing down to test a full rebuild
 
@@ -78,6 +106,7 @@ Not strictly part of setup, but delete it for a clean test:
 | --- | --- |
 | zsh completion cache | `~/.zcompdump*` |
 | Cached tool init scripts (`.zshrc`) | `~/.cache/zsh-init` |
+| Editor settings backups (`setup/editors`) | `~/.cache/dotfiles/editor-backups` |
 | zoxide (directory history) | `~/Library/Application Support/zoxide` |
 | direnv (allowed `.envrc` files) | `~/.local/share/direnv` |
 | starship | `~/.cache/starship` |

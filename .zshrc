@@ -49,13 +49,15 @@ setopt CORRECT                                # offer to fix mistyped commands
 
 # ── Completion ───────────────────────────────────────────────────────────────
 # Full rebuild at most once a day; otherwise load the cached dump.
+# The dump path is pinned to $HOME (not $ZDOTDIR) because VS Code and
+# JetBrains terminals point ZDOTDIR at their own folder while loading.
 autoload -Uz compinit
-_zcompdump=${ZDOTDIR:-$HOME}/.zcompdump
+_zcompdump=$HOME/.zcompdump
 _stale=($_zcompdump(N.mh+24))   # a plain glob here doesn't need extendedglob
 if (( $#_stale )) || [[ ! -e $_zcompdump ]]; then
-  compinit && touch $_zcompdump  # touch so the 24h timer resets
+  compinit -d $_zcompdump && touch $_zcompdump  # touch so the 24h timer resets
 else
-  compinit -C
+  compinit -C -d $_zcompdump
 fi
 unset _zcompdump _stale
 

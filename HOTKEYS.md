@@ -13,7 +13,8 @@ also works.
 **iTerm2:** the `M-` keys need **Left Option key** set to **Esc+**. Without it,
 Option types characters like `ç` and `≥`. The repo's iTerm2 profile
 (`iterm2/dotfiles.json`, installed by `setup/iterm2`) sets this, along with the
-Nerd Font starship's icons need.
+Nerd Font starship's icons need. Editor terminals (VS Code, Zed, PyCharm) need
+the same setting; see "Editor terminals" in `README.md`.
 
 The line editor is in **emacs mode** (`bindkey -e`), so these are emacs-style
 keys, not vi.

@@ -51,6 +51,7 @@ The only exceptions:
 | `bin/` | Small scripts; on `PATH` via `$DOTFILES_ROOT/bin` |
 | `setup/` | One-time machine setup: `create_links` (symlinks), `brew_install`, `configure`, `iterm2`, plus python/apt installers |
 | `iterm2/dotfiles.json` | iTerm2 Dynamic Profile, installed by `setup/iterm2` |
+| `editors/` | Desired settings for VS Code, Zed and PyCharm, checked and applied by `setup/editors` |
 | `Brewfile` | Every Homebrew tap, formula and cask the repo depends on |
 | `HOTKEYS.md` | Reference for the shell's key bindings and shortcuts |
 | `README.md` | New-machine setup steps, including the manual ones |
@@ -72,6 +73,7 @@ Using my normal tools day to day must never change files in this repo. Every tra
 - **`Brewfile` ↔ everything else:** when a file starts relying on a new Homebrew tool, add it to `Brewfile`, along with its `tap` if it needs one. Don't add install lists anywhere else; `setup/brew_install` just runs `brew bundle`.
 - **`setup/create_links`:** when you add a new top-level dotfile, add its symlink here.
 - **`iterm2/dotfiles.json`:** keep it minimal. Add a setting only when something in the repo depends on it (as `HOTKEYS.md` depends on Option sending Esc+), and record why in the README's iTerm2 table. Never copy settings across from an existing iTerm2 install. The `Guid` must match `PROFILE_GUID` in `setup/iterm2`.
+- **`editors/`:** like the iTerm2 profile, keep it minimal. Add a setting only when something in the repo depends on it, and list it in the README's "Editor terminals" table. Editors keep owning their settings files: never copy a whole editor settings file into the repo or symlink one. Change editors' files only through `setup/editors`, which touches just the keys in `editors/`.
 - **`README.md` setup steps:** when a setup script is added or changes, or a new manual step appears, update the list.
 
 ## Notes
