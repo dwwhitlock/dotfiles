@@ -1,0 +1,10 @@
+{
+  "Profiles": [
+    {
+      "Name": "dotfiles",
+      "Guid": "A9DAAEFF-2F7C-4B54-B31B-1CDEE07583D2",
+      "Option Key Sends": 2,
+      "Normal Font": "MesloLGS-NF-Regular 16"
+    }
+  ]
+}

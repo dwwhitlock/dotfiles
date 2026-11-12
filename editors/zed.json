@@ -1,0 +1,7 @@
+{
+  "buffer_font_fallbacks": ["MesloLGS NF"],
+  "terminal": {
+    "font_family": "MesloLGS NF",
+    "option_as_meta": true
+  }
+}

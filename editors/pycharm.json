@@ -1,0 +1,12 @@
+{
+  "options/terminal.xml": {
+    "TerminalOptionsProvider": {
+      "useOptionAsMetaKey": "true"
+    }
+  },
+  "options/terminal-font.xml": {
+    "TerminalFontOptions": {
+      "FONT_FAMILY": "MesloLGS NF"
+    }
+  }
+}
