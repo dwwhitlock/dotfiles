@@ -1,39 +1,6 @@
 #!/usr/bin/env sh
+# All Homebrew packages, taps and casks live in the Brewfile at the repo root.
 
+PROJECT_ROOT=$(git rev-parse --show-toplevel)
 
-brew install \
-    apache-spark \
-    awscli \
-    bufbuild/buf/buf \
-    direnv \
-    fzf \
-    java \
-    jq \
-    k9s \
-    kubectx \
-    neovim \
-    openjdk@11 \
-    pinentry-mac \
-    pipx \
-    pre-commit \
-    protolint \
-    pyenv \
-    python@3.11 \
-    ruff \
-    shellcheck \
-    terraform-docs \
-    tree \
-    wget \
-    yamllint
-
-pipx ensurepath
-
-brew tap hashicorp/tap
-brew install hashicorp/tap/terraform
-brew install hashicorp/tap/vault
-
-brew tap databricks/tap
-brew install databricks
-
-brew install --cask rancher
-
+brew bundle --file="$PROJECT_ROOT/Brewfile"
