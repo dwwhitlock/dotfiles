@@ -23,7 +23,7 @@
 #             skipped. Needs --fetch/--pull.
 #   --dry-run with --expire: report what would be closed, close nothing
 #
-# Weekly job (launchd, Monday 08:00): code-status --pull --report --expire --notify
+# Scheduled job (launchd, Mon/Wed/Fri 08:00): code-status --pull --report --expire --notify
 #
 # ---- Configuration ---
 # Optional settings live outside this public repo, in
@@ -315,7 +315,7 @@ nrepos=$(wc -l <<< "$data" | tr -d ' ')
   printf 'Generated %s by `code-status%s --report`. ' "$(date '+%Y-%m-%d %H:%M')" "$($do_pull && echo ' --pull' || { $do_fetch && echo ' --fetch'; })"
   echo "**Status:** $nrepos repos, $([ "$nprobs" = 0 ] && echo "no problems" || echo "$nprobs problem(s), see [Problems](#problems)")."
   echo
-  echo "Refreshed weekly (Monday 08:00). If the date above is more than 8 days old, the weekly job is not running. Use it to find repos related to the current task: recent default-branch work and my in-progress branches are the most likely places to find answers."
+  echo "Refreshed Mon/Wed/Fri at 08:00. If the date above is more than 4 days old, the scheduled job is not running. Use it to find repos related to the current task: recent default-branch work and my in-progress branches are the most likely places to find answers."
   echo
   echo "## Contents"
   echo

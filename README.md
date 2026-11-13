@@ -18,7 +18,7 @@ Steps marked **manual** can't be scripted.
 10. **Set up iTerm2.** See the next section.
 11. **Editor terminals:** `setup/editors --apply` (quit PyCharm first). See "Editor terminals" below.
 12. **Claude Code settings:** `setup/claude --apply`. See "Claude Code" below. Run any other installer that manages Claude settings first, so this one can see which settings it owns.
-13. **Weekly repo status:** optionally create `~/.config/code-status/env` (see "Weekly repo status" below), then `setup/launchd`.
+13. **Repo status job:** optionally create `~/.config/code-status/env` (see "Repo status job" below), then `setup/launchd`.
 14. Open a new terminal.
 
 ## iTerm2
@@ -87,13 +87,13 @@ setup/claude --uninstall  # back up, then remove exactly what was merged
 - **Other installers win.** Any other `*.manifest.json` with an `installed` object in `~/.claude` marks settings another tool owns. `setup/claude` refuses to overwrite their values; it may only add list entries and new keys. Keep permissions, sandbox and safety settings out of `claude/settings.json`.
 - **Re-run after editing** `claude/settings.json`. Backups go to `~/.cache/dotfiles/claude-backups/`.
 
-## Weekly repo status
+## Repo status job
 
 `bin/code-status` reports git state across every repo under `~/code` and, with `--report`, writes `~/code/ACTIVITY.md`: my WIP branches, my open PRs (stalest first), review requests, and which repos are active. `--expire` closes my PRs idle for 45 days, with a comment. Flags and settings are documented in the script header.
 
-`setup/launchd` installs every plist in `launchd/` as a launchd agent. `local.code-status` runs `code-status --pull --report --expire --notify` every Monday at 08:00 and posts a notification that opens `ACTIVITY.md`. Log: `~/Library/Logs/code-status.log`. Re-run `setup/launchd` after editing a plist; edits to the script itself need nothing.
+`setup/launchd` installs every plist in `launchd/` as a launchd agent. `local.code-status` runs `code-status --pull --report --expire --notify` every Monday, Wednesday and Friday at 08:00 and posts a notification that opens `ACTIVITY.md`. Log: `~/Library/Logs/code-status.log`. Re-run `setup/launchd` after editing a plist; edits to the script itself need nothing.
 
-`bin/code-session-summary` is a Claude Code SessionStart hook (registered by `setup/claude`). In sessions under `~/code` it shows the one-line summary the weekly run writes (`~/code/.activity-summary`).
+`bin/code-session-summary` is a Claude Code SessionStart hook (registered by `setup/claude`). In sessions under `~/code` it shows the one-line summary the last run wrote (`~/code/.activity-summary`).
 
 Settings that aren't public go in `~/.config/code-status/env`, which is sourced as shell and not part of this repo:
 

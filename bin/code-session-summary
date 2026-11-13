@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Claude Code SessionStart hook: shows the weekly accountability summary
+# Claude Code SessionStart hook: shows the accountability summary
 # (written by `code-status --pull --report --expire`) at the start of every
 # session under $CODE_DIR (default ~/code), both to me and to Claude.
 # Registered in user settings by setup/claude (claude/settings.json).
@@ -11,12 +11,12 @@ code_dir="${CODE_DIR:-$HOME/code}"
 case "${CLAUDE_PROJECT_DIR:-$PWD}/" in "$code_dir"/*) ;; *) exit 0 ;; esac
 f="$code_dir/.activity-summary"
 if [ ! -f "$f" ]; then
-  msg="No accountability summary yet: the weekly status job has not run (code-status)."
+  msg="No accountability summary yet: the scheduled status job has not run (code-status)."
 else
   read -r day rest < "$f"
   age=$(( ( $(date +%s) - $(date -j -f %F "$day" +%s 2>/dev/null || echo 0) ) / 86400 ))
-  msg="Weekly status ($day): $rest."
-  [ "$age" -gt 8 ] && msg="$msg WARNING: this summary is $age days old; the weekly job is not running (log: ~/Library/Logs/code-status.log)."
+  msg="Status ($day): $rest."
+  [ "$age" -gt 4 ] && msg="$msg WARNING: this summary is $age days old; the Mon/Wed/Fri job is not running (log: ~/Library/Logs/code-status.log)."
 fi
 esc=${msg//\\/\\\\}; esc=${esc//\"/\\\"}
 ctx="$esc See $code_dir/ACTIVITY.md (Accountability section) for details. If over the WIP limit or reviews are overdue, mention it once before starting new work."

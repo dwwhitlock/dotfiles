@@ -48,7 +48,7 @@ The only exceptions:
 | `.aliases` | Aliases, sourced by `.zshrc` straight from the repo (not symlinked) |
 | `git/config`, `git/ignore` | Global git config and gitignore, symlinked to `~/.gitconfig` and `~/.gitignore` |
 | `starship/starship.toml` | Prompt config, symlinked to `~/.config/starship.toml` |
-| `bin/` | Small scripts; on `PATH` via `$DOTFILES_ROOT/bin`. Includes `code-status` (weekly multi-repo report) and `code-session-summary` (its Claude Code hook) |
+| `bin/` | Small scripts; on `PATH` via `$DOTFILES_ROOT/bin`. Includes `code-status` (scheduled multi-repo report) and `code-session-summary` (its Claude Code hook) |
 | `setup/` | One-time machine setup: `create_links` (symlinks), `brew_install`, `configure`, `iterm2`, `editors`, `claude`, `launchd`, plus python/apt installers |
 | `claude/settings.json` | My personal Claude Code user settings, merged into `~/.claude/settings.json` by `setup/claude` |
 | `launchd/` | launchd agent plists, installed by `setup/launchd` |
