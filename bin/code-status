@@ -4,7 +4,7 @@
 # my WIP branches, my open PRs, review requests, and recent default-branch
 # activity per repo. Ships with dotfiles; on PATH as `code-status`.
 #
-# Usage: code-status [--fetch] [--pull] [--changed] [--report] [--notify]
+# Usage: code-status [--help] [--fetch] [--pull] [--changed] [--report] [--notify]
 #   --fetch   run `git fetch --prune` on each repo first (accurate counts).
 #             Needs SSH credentials, so it only works from a normal shell,
 #             not a sandboxed agent.
@@ -167,7 +167,11 @@ for arg in "$@"; do
     --notify)  notify=true ;;
     --expire)  expire=true ;;
     --dry-run) dry_run=true ;;
-    *) echo "usage: $0 [--fetch] [--pull] [--changed] [--report] [--notify] [--expire [--dry-run]]" >&2; exit 2 ;;
+    -h|--help)
+      # The header comment is the help text: print it without the leading "# ".
+      sed -n '2,/^[^#]/{/^#/!q;s/^# \{0,1\}//;p;}' "$0"
+      exit 0 ;;
+    *) echo "usage: $(basename "$0") [--fetch] [--pull] [--changed] [--report] [--notify] [--expire [--dry-run]] (--help for details)" >&2; exit 2 ;;
   esac
 done
 
