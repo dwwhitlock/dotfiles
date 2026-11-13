@@ -13,6 +13,13 @@ Employer-specific configuration lives in a separate private repo, loaded from th
 
 Before committing, check the diff for anything above. When writing examples (docs, comments, test values), use generic placeholders like `my-repo` or `example.com`, never real internal names. If a change would need employer-specific detail to work, stop and ask rather than committing it.
 
+## The `~/code` workspace
+
+This repo lives at `~/code/dotfiles`, alongside every other repo I work on. `~/code` itself is not a repo. It holds `CLAUDE.md` (workspace instructions, which Claude Code also loads in this repo's sessions as a parent directory's `CLAUDE.md`), `REPOS.md` (an index of all cloned repos with descriptions), and the files `bin/code-status` generates. They are kept out of version control on purpose because they describe my employer's repos, people and infrastructure.
+
+- **Never copy their content into this repo:** not repo names, descriptions, people or conventions. The README describes them only generically.
+- **Scripts here may rely on the layout** (`~/code/<repo>`), never on the content of those files.
+
 ## Protected files: `.zshrc` and `git/`
 
 `.zshrc` and everything in `git/` are the most sensitive files here: a mistake breaks every new shell or every commit. `.claude/settings.json` denies Claude any edit to them, and to their symlinks `~/.zshrc`, `~/.gitconfig` and `~/.gitignore`.
