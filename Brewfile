@@ -14,6 +14,7 @@ brew "neovim"                  # $EDITOR, ^X^E
 brew "starship"
 brew "bun"                     # JS runtime; completions come via Homebrew's site-functions
 brew "zoxide"                  # z / zi, bin/zseed
+brew "terminal-notifier"       # clickable notifications from bin/code-status
 brew "zsh-autosuggestions"
 brew "zsh-syntax-highlighting"
 

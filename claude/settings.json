@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "model": "opus",
+  "inputNeededNotifEnabled": false,
+  "enabledPlugins": {
+    "pyright-lsp@claude-plugins-official": true
+  },
+  "pluginConfigs": {
+    "cc-plugin-agents-md@builtin": {
+      "options": {
+        "instructionFiles": "claude-md-and-agents-md"
+      }
+    }
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$HOME/code/dotfiles/bin/code-session-summary\""
+          }
+        ]
+      }
+    ]
+  }
+}
