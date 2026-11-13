@@ -1,2 +1,2 @@
 #!/usr/bin/env sh
-pyenv install 3.13 3.12 3.11 3.10
+pyenv install -v 3.15 3.14 3.13 3.12 3.11 3.10
