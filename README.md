@@ -17,7 +17,9 @@ Steps marked **manual** can't be scripted.
 9. **Manual: stop Rancher Desktop editing `.zshrc`.** On first launch, Rancher Desktop adds a "MANAGED BY RANCHER DESKTOP" block to `~/.zshrc` (which is this repo's file). In Rancher Desktop → Preferences → Application → Environment, set **PATH Configuration** to **Manual**, then delete the block it added. `.zshrc` already puts `$HOME/.rd/bin` on `PATH` itself.
 10. **Set up iTerm2.** See the next section.
 11. **Editor terminals:** `setup/editors --apply` (quit PyCharm first). See "Editor terminals" below.
-12. Open a new terminal.
+12. **Claude Code settings:** `setup/claude --apply`. See "Claude Code" below. Run any other installer that manages Claude settings first, so this one can see which settings it owns.
+13. **Repo status job:** optionally create `~/.config/code-status/env` (see "Repo status job" below), then `setup/launchd`.
+14. Open a new terminal.
 
 ## iTerm2
 
@@ -70,6 +72,37 @@ The editors keep owning their settings files, so changing settings in an editor'
 ### Manual
 
 - **PyCharm:** keep **Override IDE shortcuts** on (Settings → Tools → Terminal) so keys like `⌃R` and `⌃T` reach the shell. It's on by default.
+
+## Claude Code
+
+`claude/settings.json` holds my personal Claude Code user settings: model, plugins, and the SessionStart hook for `bin/code-session-summary`. It is **merged into** `~/.claude/settings.json`, never symlinked, because Claude Code writes to that file itself and other installers may merge their own settings into it.
+
+```sh
+setup/claude              # show what would change; writes nothing
+setup/claude --apply      # back up, then merge
+setup/claude --uninstall  # back up, then remove exactly what was merged
+```
+
+- **Merge rules:** objects merge, lists are unioned, scalars from `claude/settings.json` win. What was merged is recorded in `~/.claude/dotfiles.manifest.json`, so a setting deleted from the repo is removed on the next `--apply`, and a value it overwrote is put back.
+- **Other installers win.** Any other `*.manifest.json` with an `installed` object in `~/.claude` marks settings another tool owns. `setup/claude` refuses to overwrite their values; it may only add list entries and new keys. Keep permissions, sandbox and safety settings out of `claude/settings.json`.
+- **Re-run after editing** `claude/settings.json`. Backups go to `~/.cache/dotfiles/claude-backups/`.
+
+## Repo status job
+
+`bin/code-status` reports git state across every repo under `~/code` and, with `--report`, writes `~/code/ACTIVITY.md`: my WIP branches, my open PRs (stalest first), review requests, and which repos are active. `--expire` closes my PRs idle for 45 days, with a comment. Flags and settings are documented in the script header.
+
+`setup/launchd` installs every plist in `launchd/` as a launchd agent. `local.code-status` runs `code-status --pull --report --expire --notify` every Monday, Wednesday and Friday at 08:00 and posts a notification that opens `ACTIVITY.md`. Log: `~/Library/Logs/code-status.log`. Re-run `setup/launchd` after editing a plist; edits to the script itself need nothing.
+
+`bin/code-session-summary` is a Claude Code SessionStart hook (registered by `setup/claude`). In sessions under `~/code` it shows the one-line summary the last run wrote (`~/code/.activity-summary`).
+
+Settings that aren't public go in `~/.config/code-status/env`, which is sourced as shell and not part of this repo:
+
+```sh
+CODE_STATUS_GH_OWNER=my-org   # only search PRs owned by this GitHub org/user (default: all of GitHub)
+CODE_STATUS_OPEN_APP=Zed      # app the notification opens ACTIVITY.md in
+```
+
+Per-machine exceptions to `--expire` go in `~/code/pr-keep.txt`, one `<owner>/<repo>#<number>  <reason>` per line.
 
 ## Tearing down to test a full rebuild
 

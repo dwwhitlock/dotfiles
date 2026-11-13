@@ -1,0 +1,268 @@
+#!/usr/bin/env python3
+"""Check or merge this repo's Claude Code settings into the user settings file.
+
+claude/settings.json holds only my personal settings. Claude Code writes to its
+user settings file itself (/model, /config, permission answers), and other
+installers may merge their own settings into it, so the file is never symlinked
+or replaced. Instead this merges claude/settings.json into it and records what it
+added in a manifest next to it (dotfiles.manifest.json):
+
+    {"installed":   {...claude/settings.json as last merged...},
+     "preexisting": {...parts of it the user already had; never removed...},
+     "replaced":    [[["model"], "sonnet"], ...]}   user values that were overwritten
+
+Each run is a three-way merge: take out what the previous run added, put back any
+value it overwrote, then merge the current claude/settings.json. So deleting a
+setting from the repo removes it from the user file on the next --apply, and
+--uninstall removes exactly what was added.
+
+Merge rules: objects merge recursively, lists are unioned (existing entries stay
+first), scalars replace.
+
+Other installers: any other *.manifest.json in the settings directory with an
+"installed" object marks settings another tool owns. This refuses to set a
+scalar that one of them installed, so a personal layer can add to another
+tool's settings (list entries, new keys) but never overwrite them.
+
+    setup/claude              report what would change; writes nothing; exit 1 if anything would
+    setup/claude --apply      back up the settings file, then merge
+    setup/claude --uninstall  back up the settings file, then remove what was merged
+
+The settings directory is $CLAUDE_CONFIG_DIR, or ~/.claude. Backups go to
+~/.cache/dotfiles/claude-backups/.
+"""
+
+from __future__ import annotations
+
+import copy
+import difflib
+import json
+import os
+import sys
+import time
+from pathlib import Path
+from typing import Any
+
+ROOT = Path(__file__).resolve().parent.parent
+DESIRED = ROOT / "claude" / "settings.json"
+CONFIG = Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude")
+SETTINGS = CONFIG / "settings.json"
+MANIFEST = CONFIG / "dotfiles.manifest.json"
+BACKUPS = Path.home() / ".cache/dotfiles/claude-backups"
+STAMP = time.strftime("%Y%m%d-%H%M%S")
+
+Json = Any
+Path_ = tuple  # a key path, e.g. ("hooks", "SessionStart")
+
+
+# ── merge primitives ─────────────────────────────────────────────────────────
+
+
+def merge(a: Json, b: Json, replaced: list | None = None, path: Path_ = ()) -> Json:
+    """b merged into a. Each scalar of a that b overwrote with a different value
+    is appended to `replaced` as (path, old value)."""
+    if isinstance(a, dict) and isinstance(b, dict):
+        out = dict(a)
+        for k, v in b.items():
+            out[k] = merge(a[k], v, replaced, (*path, k)) if k in a else copy.deepcopy(v)
+        return out
+    if isinstance(a, list) and isinstance(b, list):
+        return [*a, *(copy.deepcopy(x) for x in b if x not in a)]
+    if replaced is not None and a != b:
+        replaced.append((path, copy.deepcopy(a)))
+    return copy.deepcopy(b)
+
+
+def unmerge(a: Json, b: Json) -> Json:
+    """a without what merging b added: b's list entries, and scalars still equal
+    to b's. Objects and lists left empty become None (absent)."""
+    if isinstance(a, dict) and isinstance(b, dict):
+        out = dict(a)
+        for k, v in b.items():
+            if k in out:
+                sub = unmerge(out[k], v)
+                if sub is None:
+                    del out[k]
+                else:
+                    out[k] = sub
+        return out or None
+    if isinstance(a, list) and isinstance(b, list):
+        out = [x for x in a if x not in b]
+        return out or None
+    return None if a == b else a
+
+
+def common(a: Json, b: Json) -> Json:
+    """The parts of b that a already has (same scalars, same list entries)."""
+    if isinstance(a, dict) and isinstance(b, dict):
+        out = {k: c for k, v in b.items() if k in a and (c := common(a[k], v)) is not None}
+        return out or None
+    if isinstance(a, list) and isinstance(b, list):
+        out = [x for x in b if x in a]
+        return out or None
+    return copy.deepcopy(b) if a == b else None
+
+
+def get(data: Json, path: Path_) -> tuple[bool, Json]:
+    for k in path:
+        if not isinstance(data, dict) or k not in data:
+            return False, None
+        data = data[k]
+    return True, data
+
+
+def set_path(data: dict, path: Path_, value: Json) -> None:
+    for k in path[:-1]:
+        data = data.setdefault(k, {})
+    data[path[-1]] = copy.deepcopy(value)
+
+
+def leaves(data: Json, path: Path_ = ()) -> list[tuple[Path_, Json]]:
+    """(path, value) for every non-object value; lists count as one leaf."""
+    if isinstance(data, dict):
+        return [x for k, v in data.items() for x in leaves(v, (*path, k))]
+    return [(path, data)]
+
+
+# ── files ────────────────────────────────────────────────────────────────────
+
+
+def load(path: Path, default: Json) -> Json:
+    if not path.exists():
+        return default
+    try:
+        return json.loads(path.read_text())
+    except json.JSONDecodeError as e:
+        sys.exit(f"{path}: not valid JSON ({e}); fix it and re-run")
+
+
+def dump(data: Json) -> str:
+    return json.dumps(data, indent=2, ensure_ascii=False) + "\n"
+
+
+def write(path: Path, text: str) -> None:
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(text)
+    os.replace(tmp, path)
+
+
+def read_manifest() -> dict:
+    m = load(MANIFEST, {"installed": {}, "preexisting": {}, "replaced": []})
+    if not isinstance(m.get("installed"), dict):
+        sys.exit(f"{MANIFEST}: not a dotfiles manifest; delete it and re-run")
+    m.setdefault("preexisting", {})
+    m.setdefault("replaced", [])
+    return m
+
+
+def foreign_conflicts(desired: dict) -> list[str]:
+    """Settings in `desired` that would overwrite another installer's."""
+    problems = []
+    for other in sorted(CONFIG.glob("*.manifest.json")):
+        if other == MANIFEST:
+            continue
+        try:
+            owned = json.loads(other.read_text()).get("installed")
+        except (OSError, json.JSONDecodeError, AttributeError):
+            continue
+        if not isinstance(owned, dict):
+            continue
+        for path, value in leaves(desired):
+            for i in range(1, len(path) + 1):
+                has, theirs = get(owned, path[:i])
+                if not has:
+                    break
+                if isinstance(theirs, dict) and i < len(path):
+                    continue
+                if not (isinstance(theirs, list) and isinstance(value, list)):
+                    problems.append(f"{'.'.join(path)} is owned by {other.name}")
+                break
+    return problems
+
+
+# ── plan ─────────────────────────────────────────────────────────────────────
+
+
+def plan(desired: dict) -> tuple[dict, dict | None]:
+    """(new settings, new manifest or None to remove it)."""
+    user = load(SETTINGS, {})
+    prev = read_manifest()
+
+    # Take out what the previous run added, then restore what it overwrote.
+    added = unmerge(prev["installed"], prev["preexisting"]) or {}
+    base = unmerge(user, added) or {}
+    for path, old in prev["replaced"]:
+        path = tuple(path)
+        if not get(base, path)[0] and get(user, path) == get(prev["installed"], path):
+            set_path(base, path, old)
+
+    if not desired:
+        return base, None
+    replaced: list = []
+    new = merge(base, desired, replaced)
+    manifest = {
+        "installed": desired,
+        "preexisting": common(base, desired) or {},
+        "replaced": [[list(p), v] for p, v in replaced],
+    }
+    return new, manifest
+
+
+def main() -> int:
+    args = sys.argv[1:]
+    if args not in ([], ["--apply"], ["--uninstall"]):
+        print(__doc__.split("\n\n")[-2], file=sys.stderr)
+        return 2
+    uninstall = args == ["--uninstall"]
+
+    desired = {} if uninstall else load(DESIRED, None)
+    if desired is None:
+        sys.exit(f"{DESIRED}: missing")
+    desired.pop("$schema", None)  # metadata, not a setting
+
+    problems = foreign_conflicts(desired)
+    if problems:
+        print("Refusing: claude/settings.json would overwrite another installer's settings:", file=sys.stderr)
+        for p in problems:
+            print(f"  {p}", file=sys.stderr)
+        return 1
+
+    before = SETTINGS.read_text() if SETTINGS.exists() else ""
+    new, manifest = plan(desired)
+    after = dump(new)
+    manifest_text = dump(manifest) if manifest is not None else None
+    manifest_before = MANIFEST.read_text() if MANIFEST.exists() else None
+    if before and json.loads(before) == new:
+        after = before  # semantically unchanged: don't reformat the user's file
+
+    if after == before and manifest_text == manifest_before:
+        print(f"{SETTINGS}: up to date")
+        return 0
+
+    diff = difflib.unified_diff(before.splitlines(True), after.splitlines(True), str(SETTINGS), "merged")
+    sys.stdout.writelines(diff)
+    if after == before:
+        print(f"{SETTINGS}: no change; only the manifest needs updating")
+
+    if not args:
+        print("\nNothing written. Run with --apply to merge" + (" (or --uninstall)." if manifest_before else "."))
+        return 1
+
+    CONFIG.mkdir(parents=True, exist_ok=True)
+    if before:
+        BACKUPS.mkdir(parents=True, exist_ok=True)
+        backup = BACKUPS / f"settings.json.{STAMP}"
+        backup.write_text(before)
+        print(f"backed up to {backup}")
+    if after != before:
+        write(SETTINGS, after)
+    if manifest_text is None:
+        MANIFEST.unlink(missing_ok=True)
+    else:
+        write(MANIFEST, manifest_text)
+    print(f"{'removed from' if uninstall else 'merged into'} {SETTINGS}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

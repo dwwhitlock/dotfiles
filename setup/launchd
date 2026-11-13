@@ -1,0 +1,19 @@
+#!/usr/bin/env sh
+# Install (or reload) every launchd agent in launchd/. Each <label>.plist is
+# copied to ~/Library/LaunchAgents and (re)bootstrapped. launchd keeps the copy
+# it loaded, so re-run this after editing a plist. Safe to re-run.
+set -eu
+
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+AGENTS="$HOME/Library/LaunchAgents"
+DOMAIN="gui/$(id -u)"
+mkdir -p "$AGENTS" "$HOME/Library/Logs"
+
+for plist in "$ROOT"/launchd/*.plist; do
+  label=$(basename "$plist" .plist)
+  plutil -lint -s "$plist"
+  launchctl bootout "$DOMAIN/$label" 2>/dev/null || true
+  cp "$plist" "$AGENTS/$label.plist"
+  launchctl bootstrap "$DOMAIN" "$AGENTS/$label.plist"
+  echo "loaded $label (run now: launchctl kickstart $DOMAIN/$label)"
+done

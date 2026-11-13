@@ -48,8 +48,10 @@ The only exceptions:
 | `.aliases` | Aliases, sourced by `.zshrc` straight from the repo (not symlinked) |
 | `git/config`, `git/ignore` | Global git config and gitignore, symlinked to `~/.gitconfig` and `~/.gitignore` |
 | `starship/starship.toml` | Prompt config, symlinked to `~/.config/starship.toml` |
-| `bin/` | Small scripts; on `PATH` via `$DOTFILES_ROOT/bin` |
-| `setup/` | One-time machine setup: `create_links` (symlinks), `brew_install`, `configure`, `iterm2`, plus python/apt installers |
+| `bin/` | Small scripts; on `PATH` via `$DOTFILES_ROOT/bin`. Includes `code-status` (scheduled multi-repo report) and `code-session-summary` (its Claude Code hook) |
+| `setup/` | One-time machine setup: `create_links` (symlinks), `brew_install`, `configure`, `iterm2`, `editors`, `claude`, `launchd`, plus python/apt installers |
+| `claude/settings.json` | My personal Claude Code user settings, merged into `~/.claude/settings.json` by `setup/claude` |
+| `launchd/` | launchd agent plists, installed by `setup/launchd` |
 | `iterm2/dotfiles.json` | iTerm2 Dynamic Profile, installed by `setup/iterm2` |
 | `editors/` | Desired settings for VS Code, Zed and PyCharm, checked and applied by `setup/editors` |
 | `Brewfile` | Every Homebrew tap, formula and cask the repo depends on |
@@ -74,6 +76,8 @@ Using my normal tools day to day must never change files in this repo. Every tra
 - **`setup/create_links`:** when you add a new top-level dotfile, add its symlink here.
 - **`iterm2/dotfiles.json`:** keep it minimal. Add a setting only when something in the repo depends on it (as `HOTKEYS.md` depends on Option sending Esc+), and record why in the README's iTerm2 table. Never copy settings across from an existing iTerm2 install. The `Guid` must match `PROFILE_GUID` in `setup/iterm2`.
 - **`editors/`:** like the iTerm2 profile, keep it minimal. Add a setting only when something in the repo depends on it, and list it in the README's "Editor terminals" table. When adding an editor or terminal, also add a row to the "Terminals" table in `HOTKEYS.md`. Editors keep owning their settings files: never copy a whole editor settings file into the repo or symlink one. Change editors' files only through `setup/editors`, which touches just the keys in `editors/`.
+- **`claude/settings.json`:** personal preferences only (model, plugins, my own hooks). Never permissions, sandbox, or other safety settings: those belong to whichever installer manages them, and `setup/claude` refuses to overwrite another installer's values. Change Claude's user settings only through this file and `setup/claude`, never by editing `~/.claude/settings.json`, and leave `--apply` to me. Hook commands must point at scripts in this repo (`$HOME/code/dotfiles/bin/...`).
+- **`bin/code-status` and `launchd/`:** keep them employer-neutral. Anything org-specific (GitHub owner, app names) is read from `~/.config/code-status/env`, which lives outside this repo. Install or reload launchd agents only through `setup/launchd`, and leave running it to me.
 - **`README.md` setup steps:** when a setup script is added or changes, or a new manual step appears, update the list.
 
 ## Notes

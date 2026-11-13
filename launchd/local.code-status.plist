@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Monday/Wednesday/Friday refresh of ~/code/ACTIVITY.md by bin/code-status.
+     Install or reload after editing: setup/launchd
+     Run now:   launchctl kickstart gui/$(id -u)/local.code-status
+     Last exit: launchctl print gui/$(id -u)/local.code-status | grep "last exit"
+     Log:       ~/Library/Logs/code-status.log -->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>local.code-status</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/bash</string>
+    <string>-lc</string>
+    <string>"$HOME/code/dotfiles/bin/code-status" --pull --report --expire --notify &gt;&gt; "$HOME/Library/Logs/code-status.log" 2&gt;&amp;1</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+  </dict>
+  <!-- Mon/Wed/Fri 08:00; if the Mac is asleep then, it runs on wake. -->
+  <key>StartCalendarInterval</key>
+  <array>
+    <dict><key>Weekday</key><integer>1</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>0</integer></dict>
+    <dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>8</integer><key>Minute</key><integer>0</integer></dict>
+  </array>
+  <!-- Catches launch errors before the script's own logging starts. -->
+  <key>StandardErrorPath</key><string>/tmp/code-status.launchd.log</string>
+</dict>
+</plist>

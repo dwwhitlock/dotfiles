@@ -1,0 +1,420 @@
+#!/usr/bin/env bash
+# Reports working-tree and branch state across every git repo under $CODE_DIR
+# (default ~/code, up to 3 levels deep), and optionally writes ACTIVITY.md there:
+# my WIP branches, my open PRs, review requests, and recent default-branch
+# activity per repo. Ships with dotfiles; on PATH as `code-status`.
+#
+# Usage: code-status [--help] [--fetch] [--pull] [--changed] [--report] [--notify]
+#   --fetch   run `git fetch --prune` on each repo first (accurate counts).
+#             Needs SSH credentials, so it only works from a normal shell,
+#             not a sandboxed agent.
+#   --pull    fast-forward each repo's local default branch to origin
+#             (checked-out default branch only when the tree is clean;
+#             never touches feature branches). Implies --fetch.
+#   --changed only list repos that are dirty, off the default branch, or
+#             behind it (hides the clean, up-to-date majority)
+#   --report  write ACTIVITY.md (my WIP, open PRs, recent main activity)
+#             instead of printing the table. PR sections need --fetch/--pull
+#             (they call `gh`, which needs credentials).
+#   --notify  post a macOS notification with the outcome (success, problem
+#             count, action needed, or failure). Used by the launchd job.
+#   --expire  close my own open PRs with no activity for EXPIRE_DAYS (45),
+#             with a comment saying so. PRs listed in pr-keep.txt are
+#             skipped. Needs --fetch/--pull.
+#   --dry-run with --expire: report what would be closed, close nothing
+#
+# Scheduled job (launchd, Mon/Wed/Fri 08:00): code-status --pull --report --expire --notify
+#
+# ---- Configuration ---
+# Optional settings live outside this public repo, in
+# ~/.config/code-status/env (sourced as shell, so launchd sees it too):
+#   CODE_STATUS_GH_OWNER=my-org   limit PR searches to one GitHub owner
+#                                 (default: PRs anywhere on GitHub)
+#   CODE_STATUS_OPEN_APP=Zed      app the notification opens ACTIVITY.md in
+#   CODE_DIR, ACTIVE_DAYS, WIP_DAYS, EXPIRE_DAYS, WIP_LIMIT, ... (see below)
+#
+# ---- Accountability ---
+# Each network run also writes .activity-summary (one line: open PRs vs the
+# WIP limit, PRs about to expire, auto-closed PRs, reviews waiting on me).
+# A Claude Code SessionStart hook (code-session-summary) shows it at the start
+# of every session. To keep a PR open past EXPIRE_DAYS, add a line to
+# $CODE_DIR/pr-keep.txt:  <owner>/<repo>#<number>  <reason>
+# Log: ~/Library/Logs/code-status.log. Last exit: launchctl print gui/$(id -u)/local.code-status
+#
+# ---- Installation ---
+# setup/launchd (terminal-notifier comes from the Brewfile). Run now:
+#   launchctl kickstart gui/$(id -u)/local.code-status
+#
+# ---- Updating ---
+# Edits to THIS script: nothing to do. The job runs it from the repo on every
+# run, so the next scheduled run uses the new version.
+# Edits to launchd/local.code-status.plist: launchd keeps the copy it loaded,
+# so re-run setup/launchd (it reloads the job).
+# Check what launchd has loaded: launchctl print gui/$(id -u)/local.code-status
+
+
+set -uo pipefail
+conf="${XDG_CONFIG_HOME:-$HOME/.config}/code-status/env"
+# shellcheck source=/dev/null
+[ -f "$conf" ] && . "$conf"
+CODE_DIR="${CODE_DIR:-$HOME/code}"
+GH_OWNER="${CODE_STATUS_GH_OWNER:-}"
+OPEN_APP="${CODE_STATUS_OPEN_APP:-Zed}"
+
+ACTIVE_DAYS=${ACTIVE_DAYS:-30}   # window for "active on main"
+WIP_DAYS=${WIP_DAYS:-90}         # ignore WIP branches with no commits in this window
+JOBS=${JOBS:-8}
+EXPIRE_DAYS=${EXPIRE_DAYS:-45}       # --expire closes my PRs idle this long
+EXPIRE_WARN_DAYS=${EXPIRE_WARN_DAYS:-7}  # flag PRs this close to expiring
+REVIEW_DAYS=${REVIEW_DAYS:-3}        # review requests idle this long are overdue
+WIP_LIMIT=${WIP_LIMIT:-8}            # max open non-draft PRs of mine
+
+# ---- per-repo collector -----------------------------------------------------
+# Emits one TSV line:
+#  repo branch dirty main_ref behind ahead last_ts last_date n_active n_mine
+#  stash wip note subject gone
+# wip = ';'-joined "branch|ahead|behind|date"; empty fields are "-" (bash read
+# collapses consecutive tabs, so no field may be empty). gone = local branches
+# whose upstream was deleted (merged PRs); they are left out of wip.
+collect() {
+  local repo_dir=$1 repo=${1#./}
+  g() { git -C "$repo_dir" "$@" 2>/dev/null; }
+
+  local note=""
+  if $do_fetch && ! g fetch --quiet --prune; then note="fetch failed"; fi
+
+  local branch dirty main_ref main_branch
+  branch=$(g rev-parse --abbrev-ref HEAD)
+  dirty=$(g status --porcelain --untracked-files=no | wc -l | tr -d ' ')
+
+  main_ref=$(g symbolic-ref --short refs/remotes/origin/HEAD)
+  if [ -z "$main_ref" ]; then
+    for cand in main master; do
+      g show-ref --verify --quiet "refs/remotes/origin/$cand" && main_ref="origin/$cand" && break
+    done
+  fi
+  main_branch=${main_ref#origin/}
+
+  if $do_pull && [ -n "$main_ref" ] && [ -z "$note" ]; then
+    if [ "$branch" = "$main_branch" ]; then
+      if [ "$dirty" = 0 ]; then
+        g merge --ff-only --quiet "$main_ref" >/dev/null || note="$main_branch not ff"
+      else
+        note="dirty, not pulled"
+      fi
+    elif g show-ref --verify --quiet "refs/heads/$main_branch"; then
+      g fetch --quiet . "$main_ref:$main_branch" || note="$main_branch not ff"
+    fi
+  fi
+
+  local behind=- ahead=- last_ts=0 last_date=- n_active=0 n_mine=0 subject="" wip="" gone=0 res
+  local name email stash
+  name=$(g config user.name); email=$(g config user.email)
+  stash=$(g stash list | wc -l | tr -d ' ')
+
+  if [ -n "$main_ref" ]; then
+    read -r behind ahead < <(g rev-list --left-right --count "$main_ref...HEAD")
+    read -r last_ts last_date < <(g log -1 --format='%ct %cs' "$main_ref")
+    subject=$(g log -1 --format=%s "$main_ref" | tr '\t' ' ')
+    n_active=$(g rev-list --count --since="$ACTIVE_DAYS days ago" "$main_ref")
+    n_mine=$(g rev-list --count --since="$ACTIVE_DAYS days ago" \
+      --author="$name" --author="$email" "$main_ref")
+
+    # Local branches (any author) + pushed branches whose tip is mine,
+    # keeping only those with commits not on the default branch.
+    local cutoff=$(( $(date +%s) - WIP_DAYS * 86400 ))
+    res=$(
+      g for-each-ref --format="%(refname)	%(refname:short)	%(ahead-behind:$main_ref)	%(committerdate:short)	%(committerdate:unix)	%(authorname)	%(authoremail:trim)	%(upstream:track)" \
+        refs/heads refs/remotes/origin |
+      awk -F'\t' -v mb="$main_branch" -v name="$name" -v email="$email" -v cutoff="$cutoff" '
+        { split($3, ab, " ") }
+        ab[1] == 0 { next }                                   # nothing beyond main
+        $1 == "refs/heads/" mb || $1 == "refs/remotes/origin/HEAD" || $1 == "refs/remotes/origin/" mb { next }
+        $1 ~ /^refs\/heads\// && $8 == "[gone]" { gone++; next }   # PR merged, remote deleted
+        $1 ~ /^refs\/heads\// { loc[$2] = 1 }                   # hide remote copy even if stale
+        $1 ~ /^refs\/heads\// && $5 < cutoff { next }
+        $1 ~ /^refs\/heads\// { out[++n] = $2 "|" ab[1] "|" ab[2] "|" $4; next }
+        ($6 == name || $7 == email) && $5 >= cutoff {
+          short = $2; sub(/^origin\//, "", short)
+          rem[++m] = short; rout[m] = $2 "|" ab[1] "|" ab[2] "|" $4
+        }
+        END {
+          for (i = 1; i <= m; i++) if (!(rem[i] in loc)) out[++n] = rout[i]
+          for (i = 1; i <= n; i++) printf "%s%s", (i > 1 ? ";" : ""), out[i]
+          printf "#%d", gone
+        }'
+    )
+    wip=${res%#*} gone=${res##*#}
+  fi
+
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    "$repo" "${branch:-?}" "$dirty" "${main_ref:--}" "${behind:--}" "${ahead:--}" \
+    "${last_ts:-0}" "${last_date:--}" "$n_active" "$n_mine" "$stash" "${wip:--}" "${note:--}" "${subject:--}" "${gone:-0}"
+}
+
+# ---- args -------------------------------------------------------------------
+if [ "${1:-}" = __collect ]; then
+  do_fetch=$2 do_pull=$3; collect "$4"; exit 0
+fi
+
+do_fetch=false do_pull=false changed_only=false report=false notify=false expire=false dry_run=false
+for arg in "$@"; do
+  case $arg in
+    --fetch)   do_fetch=true ;;
+    --pull)    do_pull=true do_fetch=true ;;
+    --changed) changed_only=true ;;
+    --report)  report=true ;;
+    --notify)  notify=true ;;
+    --expire)  expire=true ;;
+    --dry-run) dry_run=true ;;
+    -h|--help)
+      # The header comment is the help text: print it without the leading "# ".
+      sed -n '2,/^[^#]/{/^#/!q;s/^# \{0,1\}//;p;}' "$0"
+      exit 0 ;;
+    *) echo "usage: $(basename "$0") [--fetch] [--pull] [--changed] [--report] [--notify] [--expire [--dry-run]] (--help for details)" >&2; exit 2 ;;
+  esac
+done
+
+# title, message, file to open in $OPEN_APP on click. Clickable only with
+# terminal-notifier (brew install terminal-notifier); otherwise a plain
+# osascript notification, which opens Script Editor when clicked.
+notify_msg() {
+  $notify || return 0
+  if command -v terminal-notifier >/dev/null; then
+    terminal-notifier -title "$1" -message "$2" -group code-status \
+      -execute "open -a '$OPEN_APP' '$3'" >/dev/null 2>&1
+  else
+    osascript -e "display notification \"$2\" with title \"$1\"" >/dev/null 2>&1
+  fi
+  return 0
+}
+$report && echo "[$(date '+%F %T')] start: $*"
+finished=false
+trap '$finished || { echo "[$(date '\''+%F %T'\'')] FAILED"; notify_msg "code status: FAILED" "ACTIVITY.md not updated. Click to open the log." "$HOME/Library/Logs/code-status.log"; }' EXIT
+cd "$CODE_DIR" || exit 1
+
+data=$(
+  find . -mindepth 1 -maxdepth 3 -name .git -type d 2>/dev/null | sed 's|/\.git$||' | sort |
+  xargs -P "$JOBS" -I{} "$0" __collect "$do_fetch" "$do_pull" {} | sort -f
+)
+
+# ---- table mode -------------------------------------------------------------
+if ! $report; then
+  # Tab-separated rows, aligned by `column` so long names don't break layout.
+  fmt="%s\t%s\t%s\t%s\n"
+  {
+  printf "$fmt" "REPO" "BRANCH" "DIRTY" "VS DEFAULT BRANCH"
+  printf "$fmt" "----" "------" "-----" "-----------------"
+  while IFS=$'\t' read -r repo branch dirty main_ref behind ahead _ _ _ _ _ _ note _; do
+    d=clean; [ "$dirty" != 0 ] && d=DIRTY
+    ab=-
+    if [ "$main_ref" != - ]; then
+      if [ "$branch" = "${main_ref#origin/}" ]; then ab="behind $behind"
+      else ab="+$ahead/-$behind $main_ref"; fi
+    fi
+    [ "$note" = - ] && note=""
+    $changed_only && [ "$d" = clean ] && { [ "$ab" = "behind 0" ] || [ "$ab" = - ]; } && [ -z "$note" ] && continue
+    printf "$fmt" "$repo" "$branch" "$d" "$ab${note:+ ($note)}"
+  done <<< "$data"
+  } | column -t -s $'\t'
+  finished=true
+  exit 0
+fi
+
+# ---- report mode ------------------------------------------------------------
+out="$CODE_DIR/ACTIVITY.md"
+tmp="$out.tmp"
+# ---- PRs: fetch, expire, summarize ------------------------------------------
+# Network modes only: gh needs credentials, which the agent sandbox lacks.
+# pr_tsv rows: id(owner/repo#n) age_days draft url title updated_date
+pr_tsv() {
+  gh search prs ${GH_OWNER:+--owner "$GH_OWNER"} --state open --limit 200 "$@" \
+    --json repository,number,title,updatedAt,isDraft,url \
+    --jq '.[] | ["\(.repository.nameWithOwner)#\(.number)", ((now - (.updatedAt | fromdateiso8601)) / 86400 | floor), .isDraft, .url, (.title | gsub("\t"; " ")), .updatedAt[:10]] | @tsv'
+}
+keep_file="$CODE_DIR/pr-keep.txt"
+keep_reason() {  # prints the reason if $1 is in pr-keep.txt
+  [ -f "$keep_file" ] && awk -v id="$1" '$1 == id { $1 = ""; sub(/^ +/, ""); print (length($0) ? $0 : "no reason given"); exit }' "$keep_file"
+}
+
+pr_err="" mine="" reviews="" closed="" closed_ids="" exp_probs=""
+if $do_fetch; then
+  mine=$(pr_tsv --author @me) || pr_err="gh search failed (my PRs)"
+  reviews=$(pr_tsv --review-requested @me) || pr_err="gh search failed (review requests)"
+fi
+if $do_fetch && $expire && [ -z "$pr_err" ]; then
+  while IFS=$'\t' read -r id age draft url title upd; do
+    [ -n "$id" ] && [ "$age" -ge "$EXPIRE_DAYS" ] || continue
+    [ -n "$(keep_reason "$id")" ] && continue
+    if $dry_run; then
+      closed+="- [$id]($url) would be closed ($age days idle): $title"$'\n'
+    elif gh pr close "${id##*#}" -R "${id%#*}" \
+        -c "Auto-closed after $age days without activity (personal stale-PR policy: ${EXPIRE_DAYS} days). Reopen if still needed." >/dev/null 2>&1; then
+      closed+="- [$id]($url) closed after $age days idle: $title"$'\n'
+      closed_ids+="$id "
+    else
+      exp_probs+="- \`$id\`: auto-close failed (archived repo? add it to pr-keep.txt or close it by hand)"$'\n'
+    fi
+  done <<< "$mine"
+  [ -n "$closed_ids" ] && mine=$(awk -F'\t' -v ids="$closed_ids" 'BEGIN { n = split(ids, a, " "); for (i = 1; i <= n; i++) c[a[i]] = 1 } !($1 in c)' <<< "$mine")
+fi
+closed=${closed%$'\n'}
+
+# Counts (only meaningful when PRs were fetched)
+count() { [ -z "$1" ] && echo 0 || awk -F'\t' "$2" <<< "$1" | wc -l | tr -d ' '; }
+n_mine=$(count "$mine" '1')
+n_ready=$(count "$mine" '$3 == "false"')
+n_rev=$(count "$reviews" '1')
+n_rev_late=$(count "$reviews" "\$2 >= $REVIEW_DAYS")
+n_closed=$( [ -z "$closed" ] && echo 0 || grep -c . <<< "$closed")
+expiring=""
+while IFS=$'\t' read -r id age draft url title upd; do
+  [ -n "$id" ] && [ "$age" -ge $((EXPIRE_DAYS - EXPIRE_WARN_DAYS)) ] && [ -z "$(keep_reason "$id")" ] || continue
+  expiring+="- [$id]($url) expires in $((EXPIRE_DAYS - age > 0 ? EXPIRE_DAYS - age : 0)) days: $title"$'\n'
+done <<< "$mine"
+expiring=${expiring%$'\n'}
+n_exp=$( [ -z "$expiring" ] && echo 0 || grep -c . <<< "$expiring")
+over_limit=false; [ "$n_ready" -gt "$WIP_LIMIT" ] && over_limit=true
+action_needed=false
+{ $over_limit || [ "$n_exp" -gt 0 ] || [ "$n_rev_late" -gt 0 ] || [ "$n_closed" -gt 0 ]; } && action_needed=true
+
+summary="$n_mine open PRs ($n_ready ready, limit $WIP_LIMIT$($over_limit && echo ', OVER LIMIT')), $n_exp expiring within ${EXPIRE_WARN_DAYS}d, $n_closed auto-closed$($dry_run && echo ' (dry run)'), $n_rev_late of $n_rev review requests idle ${REVIEW_DAYS}+ days"
+if $do_fetch && [ -z "$pr_err" ]; then
+  printf '%s %s\n' "$(date +%F)" "$summary" > "$CODE_DIR/.activity-summary"
+fi
+
+# Markdown table rows, stalest first. $1 = rows, $2 = "mine" or "review"
+pr_table() {
+  echo "| Repo | PR | Title | Idle (days) | Status |"
+  echo "|---|---|---|---|---|"
+  sort -t$'\t' -k2,2nr <<< "$1" | while IFS=$'\t' read -r id age draft url title upd; do
+    st=""
+    [ "$draft" = true ] && st="draft"
+    if [ "$2" = mine ]; then
+      kr=$(keep_reason "$id")
+      if [ -n "$kr" ]; then st="${st:+$st, }kept: $kr"
+      elif [ "$age" -ge $((EXPIRE_DAYS - EXPIRE_WARN_DAYS)) ]; then st="${st:+$st, }**expires in $((EXPIRE_DAYS - age > 0 ? EXPIRE_DAYS - age : 0))d**"; fi
+    elif [ "$age" -ge "$REVIEW_DAYS" ]; then st="${st:+$st, }**overdue**"; fi
+    repo=${id%#*}; repo=${repo#*/}
+    echo "| \`$repo\` | [#${id##*#}]($url) | ${title//|/\\|} | $age | $st |"
+  done
+}
+
+probs=$(awk -F'\t' '
+    $4 == "-"   { print "- `" $1 "`: no origin default branch found" }
+    $13 != "-"  { print "- `" $1 "`: " $13 }' <<< "$data")
+[ -n "$pr_err" ] && probs="${probs:+$probs
+}- $pr_err"
+[ -n "$exp_probs" ] && probs="${probs:+$probs
+}${exp_probs%$'\n'}"
+nprobs=$(grep -c '^- ' <<< "$probs")
+nrepos=$(wc -l <<< "$data" | tr -d ' ')
+{
+  echo "# code/ — Activity Snapshot"
+  echo
+  printf 'Generated %s by `code-status%s --report`. ' "$(date '+%Y-%m-%d %H:%M')" "$($do_pull && echo ' --pull' || { $do_fetch && echo ' --fetch'; })"
+  echo "**Status:** $nrepos repos, $([ "$nprobs" = 0 ] && echo "no problems" || echo "$nprobs problem(s), see [Problems](#problems)")."
+  echo
+  echo "Refreshed Mon/Wed/Fri at 08:00. If the date above is more than 4 days old, the scheduled job is not running. Use it to find repos related to the current task: recent default-branch work and my in-progress branches are the most likely places to find answers."
+  echo
+  echo "## Contents"
+  echo
+  echo "- [Accountability](#accountability)"
+  echo "- [My work in progress](#my-work-in-progress)"
+  echo "- [My open PRs](#my-open-prs)"
+  echo "- [PRs awaiting my review](#prs-awaiting-my-review)"
+  echo "- [Active on default branch (last $ACTIVE_DAYS days)](#active-on-default-branch-last-$ACTIVE_DAYS-days)"
+  echo "- [Quiet (no default-branch commits in $ACTIVE_DAYS days)](#quiet-no-default-branch-commits-in-$ACTIVE_DAYS-days)"
+  echo "- [Cleanup](#cleanup)"
+  echo "- [Problems](#problems)"
+  echo
+  echo "## Accountability"
+  echo
+  if ! $do_fetch; then echo "_Not refreshed: run with \`--fetch\` or \`--pull\`._"
+  elif [ -n "$pr_err" ]; then echo "_Unavailable: $pr_err._"
+  else
+    echo "**$summary.**"
+    echo
+    echo "- **WIP limit:** $n_ready open non-draft PRs against a limit of $WIP_LIMIT.$($over_limit && echo ' Over the limit: finish, hand off or close something before opening another PR.')"
+    echo "- **Expiry:** my PRs idle for $EXPIRE_DAYS days are closed automatically$($expire || echo ' (expiry is off for this run)'). Keep one open by adding it to \`pr-keep.txt\` with a reason."
+    echo "- **Reviews:** requests idle for $REVIEW_DAYS+ days are marked overdue."
+    if [ -n "$closed" ]; then echo; echo "**Auto-closed this run$($dry_run && echo ' (dry run, nothing closed)'):**"; echo; echo "$closed"; fi
+    if [ -n "$expiring" ]; then echo; echo "**Expiring soon:**"; echo; echo "$expiring"; fi
+  fi
+  echo
+  echo "## My work in progress"
+  echo
+  echo "Branches with commits in the last $WIP_DAYS days that are not on the default branch: local branches (any author) and my pushed branches with commits not on the default branch, plus uncommitted changes. Local branches whose remote was deleted (merged) are left out; see [Cleanup](#cleanup). Newest first."
+  echo
+  echo "| Repo | Branch | Ahead / behind | Last commit | Notes |"
+  echo "|---|---|---|---|---|"
+  awk -F'\t' '
+    {
+      notes = ""
+      if ($3 > 0) notes = $3 " uncommitted"
+      n = ($12 == "-") ? 0 : split($12, w, ";")
+      for (i = 1; i <= n; i++) {
+        split(w[i], f, "|")
+        cur = (f[1] == $2) ? " (checked out)" : ""
+        print f[4] "\t| `" $1 "` | `" f[1] "`" cur " | +" f[2] " / -" f[3] " | " f[4] " | " (cur ? notes : "") " |"
+        if (cur) notes = ""
+      }
+      if (notes != "") print "0000\t| `" $1 "` | `" $2 "` | | | " notes " |"
+    }' <<< "$data" | sort -r | cut -f2-
+  echo
+  for sect in "My open PRs|mine" "PRs awaiting my review|reviews"; do
+    echo "## ${sect%|*}"
+    echo
+    var=${sect#*|}; rows=${!var:-}
+    if ! $do_fetch; then echo "_Not refreshed: run with \`--fetch\` or \`--pull\`._"
+    elif [ -n "$pr_err" ]; then echo "_Unavailable: $pr_err._"
+    elif [ -z "$rows" ]; then echo "None."
+    else
+      echo "Stalest first. Idle = days since the PR was last updated."
+      echo
+      pr_table "$rows" "$([ "$var" = mine ] && echo mine || echo review)"
+    fi
+    echo
+  done
+  echo "## Active on default branch (last $ACTIVE_DAYS days)"
+  echo
+  echo "Newest first. **Mine** = my commits in the window."
+  echo
+  echo "| Repo | Commits | Mine | Last commit | Latest subject |"
+  echo "|---|---|---|---|---|"
+  awk -F'\t' '$9 > 0 {
+      s = $14; gsub(/\|/, "\\|", s); if (length(s) > 80) s = substr(s, 1, 77) "..."
+      print $7 "\t| `" $1 "` | " $9 " | " ($10 > 0 ? $10 : "") " | " $8 " | " s " |"
+    }' <<< "$data" | sort -rn | cut -f2-
+  echo
+  echo "## Quiet (no default-branch commits in $ACTIVE_DAYS days)"
+  echo
+  echo "Repo (last default-branch commit), newest first."
+  echo
+  awk -F'\t' '$9 == 0 && $4 != "-" { print $7 "\t`" $1 "` (" $8 ")" }' <<< "$data" |
+    sort -rn | cut -f2- | paste -sd, - | sed 's/,/, /g'
+  echo
+  echo "## Cleanup"
+  echo
+  echo "Leftovers that can probably be deleted. Not shown under work in progress."
+  echo
+  echo "**Merged branches** (local branches whose remote was deleted; list with \`git branch -vv | grep ': gone]'\`):"
+  echo
+  gone=$(awk -F'\t' '$15 > 0 { print "`" $1 "` (" $15 ")" }' <<< "$data" | paste -sd, - | sed 's/,/, /g')
+  echo "${gone:-None.}"
+  echo
+  echo "**Stashes** (list with \`git stash list --date=short\`):"
+  echo
+  stashes=$(awk -F'\t' '$11 > 0 { print "`" $1 "` (" $11 ")" }' <<< "$data" | paste -sd, - | sed 's/,/, /g')
+  echo "${stashes:-None.}"
+  echo
+  echo "## Problems"
+  echo
+  echo "${probs:-None.}"
+} > "$tmp" && mv "$tmp" "$out" || exit 1
+finished=true
+echo "[$(date '+%F %T')] wrote $out ($nrepos repos, $nprobs problems)"
+$do_fetch && echo "[$(date '+%F %T')] $summary"
+if $action_needed; then notify_msg "code status: action needed" "$summary" "$out"
+elif [ "$nprobs" = 0 ]; then notify_msg "code status: updated" "ACTIVITY.md refreshed, $nrepos repos, no problems" "$out"
+else notify_msg "code status: $nprobs problem(s)" "ACTIVITY.md refreshed. Click to see its Problems section." "$out"; fi
