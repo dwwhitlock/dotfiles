@@ -156,7 +156,7 @@ Not strictly part of setup, but delete it for a clean test:
 | zsh completion cache | `~/.zcompdump*` |
 | Cached tool init scripts (`.zshrc`) | `~/.cache/zsh-init` |
 | Editor settings backups (`setup/editors`) | `~/.cache/dotfiles/editor-backups` |
-| zoxide (directory history) | `~/Library/Application Support/zoxide` |
+| zoxide (directory history; also writable from Claude Code's sandbox, via `claude/settings.json`, so `bin/zseed` works there) | `~/Library/Application Support/zoxide` |
 | direnv (allowed `.envrc` files) | `~/.local/share/direnv` |
 | starship | `~/.cache/starship` |
 | bun (global packages) | `~/.bun` |

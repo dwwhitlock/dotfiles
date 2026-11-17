@@ -3,6 +3,13 @@
   "enabledPlugins": {
     "pyright-lsp@claude-plugins-official": true
   },
+  "sandbox": {
+    "filesystem": {
+      "allowWrite": [
+        "~/Library/Application Support/zoxide"
+      ]
+    }
+  },
   "hooks": {
     "SessionStart": [
       {
