@@ -34,8 +34,11 @@
 #   CODE_DIR, ACTIVE_DAYS, WIP_DAYS, EXPIRE_DAYS, WIP_LIMIT, ... (see below)
 #
 # ---- Accountability ---
-# Each network run also writes .activity-summary (one line: open PRs vs the
-# WIP limit, PRs about to expire, auto-closed PRs, reviews waiting on me).
+# Each network run also writes .activity-summary (first line: open PRs vs the
+# WIP limit, PRs about to expire, auto-closed PRs, review requests; then one
+# line per review waiting on me: not a draft and no changes requested, which
+# assumes the org dismisses reviews on push). PRs in archived repos are left
+# out everywhere.
 # A Claude Code SessionStart hook (code-session-summary) shows it at the start
 # of every session. To keep a PR open past EXPIRE_DAYS, add a line to
 # $CODE_DIR/pr-keep.txt:  <owner>/<repo>#<number>  <reason>
@@ -228,7 +231,8 @@ tmp="$out.tmp"
 # Network modes only: gh needs credentials, which the agent sandbox lacks.
 # pr_tsv rows: id(owner/repo#n) age_days draft url title updated_date
 pr_tsv() {
-  gh search prs ${GH_OWNER:+--owner "$GH_OWNER"} --state open --limit 200 "$@" \
+  # Archived repos are read-only: their PRs can't be updated, reviewed or closed.
+  gh search prs ${GH_OWNER:+--owner "$GH_OWNER"} --state open --archived=false --limit 200 "$@" \
     --json repository,number,title,updatedAt,isDraft,url \
     --jq '.[] | ["\(.repository.nameWithOwner)#\(.number)", ((now - (.updatedAt | fromdateiso8601)) / 86400 | floor), .isDraft, .url, (.title | gsub("\t"; " ")), .updatedAt[:10]] | @tsv'
 }
@@ -241,6 +245,13 @@ pr_err="" mine="" reviews="" closed="" closed_ids="" exp_probs=""
 if $do_fetch; then
   mine=$(pr_tsv --author @me) || pr_err="gh search failed (my PRs)"
   reviews=$(pr_tsv --review-requested @me) || pr_err="gh search failed (review requests)"
+  changes=$(pr_tsv --review-requested @me --review changes_requested | cut -f1) || pr_err="gh search failed (review requests)"
+  # Add a 7th field: whether the PR is waiting on me. It isn't when it is a
+  # draft, or has changes requested (reviews are dismissed on push, so that
+  # means the author hasn't pushed a fix yet).
+  [ -n "$reviews" ] && reviews=$(awk -F'\t' -v OFS='\t' -v ids="$(tr '\n' ' ' <<< "$changes")" '
+    BEGIN { n = split(ids, a, " "); for (i = 1; i <= n; i++) c[a[i]] = 1 }
+    { print $0, ($3 == "true" ? "draft" : ($1 in c ? "changes" : "waiting")) }' <<< "$reviews")
 fi
 if $do_fetch && $expire && [ -z "$pr_err" ]; then
   while IFS=$'\t' read -r id age draft url title upd; do
@@ -253,7 +264,7 @@ if $do_fetch && $expire && [ -z "$pr_err" ]; then
       closed+="- [$id]($url) closed after $age days idle: $title"$'\n'
       closed_ids+="$id "
     else
-      exp_probs+="- \`$id\`: auto-close failed (archived repo? add it to pr-keep.txt or close it by hand)"$'\n'
+      exp_probs+="- \`$id\`: auto-close failed (add it to pr-keep.txt or close it by hand)"$'\n'
     fi
   done <<< "$mine"
   [ -n "$closed_ids" ] && mine=$(awk -F'\t' -v ids="$closed_ids" 'BEGIN { n = split(ids, a, " "); for (i = 1; i <= n; i++) c[a[i]] = 1 } !($1 in c)' <<< "$mine")
@@ -264,8 +275,15 @@ closed=${closed%$'\n'}
 count() { [ -z "$1" ] && echo 0 || awk -F'\t' "$2" <<< "$1" | wc -l | tr -d ' '; }
 n_mine=$(count "$mine" '1')
 n_ready=$(count "$mine" '$3 == "false"')
+# Only review requests waiting on me (field 7, see above) can be overdue.
 n_rev=$(count "$reviews" '1')
-n_rev_late=$(count "$reviews" "\$2 >= $REVIEW_DAYS")
+n_rev_wait=$(count "$reviews" '$7 == "waiting"')
+n_rev_late=$(count "$reviews" "\$7 == \"waiting\" && \$2 >= $REVIEW_DAYS")
+# One line per waiting review, stalest first, for the session hook.
+rev_lines=$([ -z "$reviews" ] || awk -F'\t' -v late="$REVIEW_DAYS" '$7 == "waiting" {
+    t = $5; if (length(t) > 60) t = substr(t, 1, 57) "..."
+    print $2 "\t" $1 " (" $2 "d idle" ($2 >= late ? ", OVERDUE" : "") "): " t
+  }' <<< "$reviews" | sort -t$'\t' -k1,1nr | cut -f2-)
 n_closed=$( [ -z "$closed" ] && echo 0 || grep -c . <<< "$closed")
 expiring=""
 while IFS=$'\t' read -r id age draft url title upd; do
@@ -278,23 +296,27 @@ over_limit=false; [ "$n_ready" -gt "$WIP_LIMIT" ] && over_limit=true
 action_needed=false
 { $over_limit || [ "$n_exp" -gt 0 ] || [ "$n_rev_late" -gt 0 ] || [ "$n_closed" -gt 0 ]; } && action_needed=true
 
-summary="$n_mine open PRs ($n_ready ready, limit $WIP_LIMIT$($over_limit && echo ', OVER LIMIT')), $n_exp expiring within ${EXPIRE_WARN_DAYS}d, $n_closed auto-closed$($dry_run && echo ' (dry run)'), $n_rev_late of $n_rev review requests idle ${REVIEW_DAYS}+ days"
+summary="$n_mine open PRs ($n_ready ready, limit $WIP_LIMIT$($over_limit && echo ', OVER LIMIT')), $n_exp expiring within ${EXPIRE_WARN_DAYS}d, $n_closed auto-closed$($dry_run && echo ' (dry run)'), $n_rev review requests ($n_rev_wait waiting on me, $n_rev_late idle ${REVIEW_DAYS}+ days)"
+# Line 1: date + summary. Following lines: the reviews waiting on me.
 if $do_fetch && [ -z "$pr_err" ]; then
-  printf '%s %s\n' "$(date +%F)" "$summary" > "$CODE_DIR/.activity-summary"
+  { printf '%s %s\n' "$(date +%F)" "$summary"; [ -n "$rev_lines" ] && echo "$rev_lines"; } > "$CODE_DIR/.activity-summary"
 fi
 
 # Markdown table rows, stalest first. $1 = rows, $2 = "mine" or "review"
 pr_table() {
   echo "| Repo | PR | Title | Idle (days) | Status |"
   echo "|---|---|---|---|---|"
-  sort -t$'\t' -k2,2nr <<< "$1" | while IFS=$'\t' read -r id age draft url title upd; do
+  sort -t$'\t' -k2,2nr <<< "$1" | while IFS=$'\t' read -r id age draft url title upd wait; do
     st=""
     [ "$draft" = true ] && st="draft"
     if [ "$2" = mine ]; then
       kr=$(keep_reason "$id")
       if [ -n "$kr" ]; then st="${st:+$st, }kept: $kr"
       elif [ "$age" -ge $((EXPIRE_DAYS - EXPIRE_WARN_DAYS)) ]; then st="${st:+$st, }**expires in $((EXPIRE_DAYS - age > 0 ? EXPIRE_DAYS - age : 0))d**"; fi
-    elif [ "$age" -ge "$REVIEW_DAYS" ]; then st="${st:+$st, }**overdue**"; fi
+    elif [ "$wait" = draft ]; then st="draft, not waiting on me"
+    elif [ "$wait" = changes ]; then st="changes requested, not waiting on me"
+    elif [ "$age" -ge "$REVIEW_DAYS" ]; then st="**waiting on me, overdue**"
+    else st="waiting on me"; fi
     repo=${id%#*}; repo=${repo#*/}
     echo "| \`$repo\` | [#${id##*#}]($url) | ${title//|/\\|} | $age | $st |"
   done
@@ -337,7 +359,7 @@ nrepos=$(wc -l <<< "$data" | tr -d ' ')
     echo
     echo "- **WIP limit:** $n_ready open non-draft PRs against a limit of $WIP_LIMIT.$($over_limit && echo ' Over the limit: finish, hand off or close something before opening another PR.')"
     echo "- **Expiry:** my PRs idle for $EXPIRE_DAYS days are closed automatically$($expire || echo ' (expiry is off for this run)'). Keep one open by adding it to \`pr-keep.txt\` with a reason."
-    echo "- **Reviews:** requests idle for $REVIEW_DAYS+ days are marked overdue."
+    echo "- **Reviews:** $n_rev_wait of $n_rev review requests are waiting on me (not drafts, and not those with changes requested; reviews are dismissed on push). Those idle for $REVIEW_DAYS+ days are marked overdue."
     if [ -n "$closed" ]; then echo; echo "**Auto-closed this run$($dry_run && echo ' (dry run, nothing closed)'):**"; echo; echo "$closed"; fi
     if [ -n "$expiring" ]; then echo; echo "**Expiring soon:**"; echo; echo "$expiring"; fi
   fi

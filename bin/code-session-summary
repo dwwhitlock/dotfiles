@@ -13,11 +13,13 @@ f="$code_dir/.activity-summary"
 if [ ! -f "$f" ]; then
   msg="No accountability summary yet: the scheduled status job has not run (code-status)."
 else
-  read -r day rest < "$f"
+  # Line 1: date + summary. Further lines: reviews waiting on me.
+  { read -r day rest; waiting=$(paste -sd';' - | sed 's/;/; /g'); } < "$f"
   age=$(( ( $(date +%s) - $(date -j -f %F "$day" +%s 2>/dev/null || echo 0) ) / 86400 ))
   msg="Status ($day): $rest."
+  [ -n "$waiting" ] && msg="$msg Reviews waiting on you: $waiting."
   [ "$age" -gt 4 ] && msg="$msg WARNING: this summary is $age days old; the Mon/Wed/Fri job is not running (log: ~/Library/Logs/code-status.log)."
 fi
-esc=${msg//\\/\\\\}; esc=${esc//\"/\\\"}
+esc=${msg//\\/\\\\}; esc=${esc//\"/\\\"}; esc=${esc//$'\t'/ }
 ctx="$esc See $code_dir/ACTIVITY.md (Accountability section) for details. If over the WIP limit or reviews are overdue, mention it once before starting new work."
 printf '{"systemMessage":"%s","hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"%s"}}\n' "$esc" "$ctx"
