@@ -9,7 +9,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$HOME/code/dotfiles/bin/code-session-summary\""
+            "command": "\"$HOME/code/dotfiles/bin/standup-session-summary\""
           }
         ]
       }
